@@ -2,5 +2,9 @@
 <classpath>
 	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="lib/odps-sdk-mapred-0.14.0-SNAPSHOT.jar" sourcepath="lib/odps-sdk-mapred-0.14.0-SNAPSHOT-sources.jar"/>
+	<classpathentry kind="lib" path="lib/odps-sdk-commons-0.14.0-SNAPSHOT.jar" sourcepath="/Users/luochen/Documents/Development/odps-sdk-java/odps-sdk-core/odps-sdk-core-0.13.2-sources.jar"/>
+	<classpathentry kind="lib" path="/Users/luochen/Documents/Development/odps/lib/odps-sdk-core-0.13.2.jar" sourcepath="/Users/luochen/Documents/Development/odps-sdk-java/odps-sdk-core/odps-sdk-core-0.13.2-sources.jar"/>
+	<classpathentry kind="lib" path="lib/javacsv-2.0.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
