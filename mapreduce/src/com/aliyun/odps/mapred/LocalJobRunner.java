@@ -4,14 +4,17 @@ import com.aliyun.odps.OdpsException;
 import com.aliyun.odps.conf.Configuration;
 import com.aliyun.odps.mapred.conf.JobConf;
 import com.aliyun.odps.mapred.local.LocalRunningJob;
-import com.aliyun.odps.mapred.local.conf.LocalConf;
+import com.aliyun.odps.mapred.local.conf.LocalJobConf;
 
 public class LocalJobRunner implements JobRunner {
 
-	private LocalConf conf;
+	private LocalJobConf conf;
 
 	public LocalJobRunner(JobConf conf) {
-		this.conf = new LocalConf(conf);
+		this.conf = new LocalJobConf(conf);
+	}
+
+	public LocalJobRunner() {
 	}
 
 	@Override
@@ -21,7 +24,7 @@ public class LocalJobRunner implements JobRunner {
 
 	@Override
 	public void setConf(Configuration conf) {
-		this.conf = new LocalConf(conf);
+		this.conf = new LocalJobConf(conf);
 	}
 
 	@Override

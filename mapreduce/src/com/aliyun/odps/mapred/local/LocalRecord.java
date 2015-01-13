@@ -13,6 +13,11 @@ public class LocalRecord implements Record {
 
 	private HashMap<String, Integer> names = new HashMap<String, Integer>();
 
+	public LocalRecord(int len) {
+		this.columns = new Column[len];
+		this.values = new Object[len];
+	}
+
 	public LocalRecord(Column[] columns) {
 		if (columns == null) {
 			throw new IllegalArgumentException();
@@ -190,6 +195,15 @@ public class LocalRecord implements Record {
 		return values;
 	}
 
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		for (Object value : values) {
+			sb.append(value);
+		}
+		return sb.toString();
+	}
+
 	private int getColumnIndex(String name) {
 		Integer idx = names.get(name);
 		if (idx == null) {
@@ -197,4 +211,5 @@ public class LocalRecord implements Record {
 		}
 		return idx;
 	}
+
 }

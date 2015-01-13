@@ -13,15 +13,15 @@ import com.aliyun.odps.mapred.Reducer;
 import com.aliyun.odps.mapred.TaskContext;
 import com.aliyun.odps.mapred.TaskId;
 import com.aliyun.odps.mapred.conf.JobConf;
-import com.aliyun.odps.mapred.local.conf.LocalConf;
+import com.aliyun.odps.mapred.local.conf.LocalJobConf;
 
 public class LocalTaskContext implements TaskContext {
 
-	private LocalConf conf;
+	private LocalJobConf conf;
 
 	private TaskId taskId;
 
-	public LocalTaskContext(LocalConf conf, TaskId id) {
+	public LocalTaskContext(LocalJobConf conf, TaskId id) {
 		this.conf = conf;
 		this.taskId = id;
 	}
@@ -38,32 +38,34 @@ public class LocalTaskContext implements TaskContext {
 
 	@Override
 	public Column[] getMapOutputKeySchema() {
-		return null;
+		return conf.getMapOutputKeySchema();
 	}
 
 	@Override
 	public Column[] getMapOutputValueSchema() {
-		return null;
+		return conf.getMapOutputValueSchema();
 	}
 
 	@Override
 	public Class<? extends Mapper> getMapperClass() throws ClassNotFoundException {
-		return null;
+		return conf.getMapperClass();
 	}
 
 	@Override
-	public Class<? extends Reducer> getCombinerClass() throws ClassNotFoundException {
-		return null;
+	public Class<? extends Reducer> getCombinerClass()
+			throws ClassNotFoundException {
+		return conf.getCombinerClass();
 	}
 
 	@Override
-	public Class<? extends Reducer> getReducerClass() throws ClassNotFoundException {
-		return null;
+	public Class<? extends Reducer> getReducerClass()
+			throws ClassNotFoundException {
+		return conf.getReducerClass();
 	}
 
 	@Override
 	public String[] getGroupingColumns() {
-		return null;
+		return conf.getOutputGroupingColumns();
 	}
 
 	@Override
@@ -78,13 +80,14 @@ public class LocalTaskContext implements TaskContext {
 
 	@Override
 	public Record createOutputRecord() throws IOException {
-		//TODO
-		return null;
+		Record record = new LocalRecord(conf.getOutputSchema());
+
+		return record;
 	}
 
 	@Override
 	public Record createOutputRecord(String label) throws IOException {
-		//TODO
+
 		return null;
 
 	}
@@ -103,24 +106,26 @@ public class LocalTaskContext implements TaskContext {
 
 	@Override
 	public Record createMapOutputKeyRecord() throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		Record record = new LocalRecord(conf.getMapOutputKeySchema());
+		return record;
 	}
 
 	@Override
 	public Record createMapOutputValueRecord() throws IOException {
+		Record record = new LocalRecord(conf.getMapOutputValueSchema());
+		return record;
+	}
+
+	@Override
+	public BufferedInputStream readResourceFileAsStream(String resourceName)
+			throws IOException {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public BufferedInputStream readResourceFileAsStream(String resourceName) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public Iterator<Record> readResourceTable(String resourceName) throws IOException {
+	public Iterator<Record> readResourceTable(String resourceName)
+			throws IOException {
 		// TODO Auto-generated method stub
 		return null;
 	}
