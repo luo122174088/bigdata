@@ -1,4 +1,4 @@
-package com.aliyun.odps.mapred.local;
+package edu.thu.mapred.local.map;
 
 import java.io.File;
 

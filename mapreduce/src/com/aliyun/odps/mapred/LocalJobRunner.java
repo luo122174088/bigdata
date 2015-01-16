@@ -3,8 +3,9 @@ package com.aliyun.odps.mapred;
 import com.aliyun.odps.OdpsException;
 import com.aliyun.odps.conf.Configuration;
 import com.aliyun.odps.mapred.conf.JobConf;
-import com.aliyun.odps.mapred.local.LocalRunningJob;
-import com.aliyun.odps.mapred.local.conf.LocalJobConf;
+
+import edu.thu.mapred.local.LocalJobConf;
+import edu.thu.mapred.local.LocalRunningJob;
 
 public class LocalJobRunner implements JobRunner {
 

@@ -1,4 +1,4 @@
-package com.aliyun.odps.mapred.local;
+package edu.thu.mapred.local;
 
 import java.io.File;
 import java.io.IOException;
@@ -10,7 +10,10 @@ import com.aliyun.odps.counter.Counters;
 import com.aliyun.odps.mapred.JobStatus;
 import com.aliyun.odps.mapred.RunningJob;
 import com.aliyun.odps.mapred.TaskId;
-import com.aliyun.odps.mapred.local.conf.LocalJobConf;
+
+import edu.thu.mapred.local.map.InputSplit;
+import edu.thu.mapred.local.map.MapDriver;
+import edu.thu.mapred.local.red.ReduceDriver;
 
 public class LocalRunningJob implements RunningJob {
 

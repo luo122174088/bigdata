@@ -1,15 +1,21 @@
-package com.aliyun.odps.mapred.local;
+package edu.thu.mapred.local;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 
 import com.aliyun.odps.Column;
+import com.aliyun.odps.OdpsType;
 import com.aliyun.odps.data.Record;
+
+import edu.thu.mapred.local.util.IOUtil;
 
 public class LocalRecord implements Record {
 
 	private Column[] columns;
-	private final Object[] values;
+	private Object[] values;
 
 	private HashMap<String, Integer> names = new HashMap<String, Integer>();
 
@@ -210,6 +216,123 @@ public class LocalRecord implements Record {
 			throw new IllegalArgumentException("No such column:" + name);
 		}
 		return idx;
+	}
+
+	public void serialize(DataOutput out) throws IOException {
+		for (int i = 0; i < values.length; i++) {
+			OdpsType type = columns[i].getType();
+			switch (type) {
+			case BIGINT:
+				out.writeLong((Long) values[i]);
+				break;
+			case STRING:
+				String value = (String) values[i];
+				byte[] bs = value.getBytes();
+				out.writeInt(bs.length);
+				out.write(bs);
+				break;
+			default:
+				throw new UnsupportedOperationException("Unimplemented");
+			}
+
+		}
+	}
+
+	public void deserialize(DataInput in) throws IOException {
+		for (int i = 0; i < values.length; i++) {
+			OdpsType type = columns[i].getType();
+			switch (type) {
+			case BIGINT:
+				values[i] = in.readLong();
+				break;
+			case STRING:
+				int len = in.readInt();
+				byte[] bs = new byte[len];
+				in.readFully(bs);
+				values[i] = new String(bs);
+				break;
+			default:
+				throw new UnsupportedOperationException("Unimplemented");
+			}
+		}
+	}
+
+	public void fastSet(Object[] values) {
+		this.values = values;
+	}
+
+	public static class DefaultRecordComparator implements RawRecordComparator {
+		private Column[] schema;
+
+		public DefaultRecordComparator(Column[] schema) {
+			this.schema = schema;
+		}
+
+		@Override
+		public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
+			for (int i = 0; i < schema.length; i++) {
+				switch (schema[i].getType()) {
+				case BIGINT:
+					long v1 = IOUtil.readLong(b1, s1);
+					long v2 = IOUtil.readLong(b2, s2);
+					if (v1 < v2) {
+						return -1;
+					} else if (v1 > v2) {
+						return 1;
+					} else {
+						s1 += 8;
+						s2 += 8;
+
+						l1 -= 8;
+						l2 -= 8;
+					}
+					break;
+				case STRING:
+					int n1 = IOUtil.readInt(b1, s1);
+					int n2 = IOUtil.readInt(b2, s2);
+					int result = IOUtil.compareBytes(b1, s1 + 4, n1, b2, s2 + 4, n2);
+					if (result != 0) {
+						return result;
+					} else {
+						s1 = s1 + 4 + n1;
+						s2 = s2 + 4 + n1;
+						l1 = l1 - 4 - n1;
+						l2 = l2 - 4 - n2;
+					}
+					break;
+				default:
+					throw new UnsupportedOperationException("Unimplemented");
+				}
+			}
+			return 0;
+		}
+
+		@Override
+		public int compare(LocalRecord o1, LocalRecord o2) {
+			for (int i = 0; i < schema.length; i++) {
+				switch (schema[i].getType()) {
+				case BIGINT:
+					long v1 = o1.getBigint(i);
+					long v2 = o2.getBigint(i);
+					if (v1 != v2) {
+						return v1 < v2 ? -1 : 1;
+					}
+					break;
+				case STRING:
+					String s1 = o1.getString(i);
+					String s2 = o2.getString(i);
+					int r = s1.compareTo(s2);
+					if (r != 0) {
+						return r;
+					}
+					break;
+				default:
+					throw new UnsupportedOperationException("Unimplemented");
+				}
+			}
+			return 0;
+		}
+
 	}
 
 }

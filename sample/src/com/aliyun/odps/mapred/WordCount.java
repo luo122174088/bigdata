@@ -38,8 +38,7 @@ public class WordCount {
 		}
 
 		@Override
-		public void map(long recordNum, Record record, TaskContext context)
-				throws IOException {
+		public void map(long recordNum, Record record, TaskContext context) throws IOException {
 			for (int i = 0; i < record.getColumnCount(); i++) {
 				String[] words = record.get(i).toString().split("\\s+");
 				for (String w : words) {
@@ -67,8 +66,7 @@ public class WordCount {
 		}
 
 		@Override
-		public void reduce(Record key, Iterator<Record> values, TaskContext context)
-				throws IOException {
+		public void reduce(Record key, Iterator<Record> values, TaskContext context) throws IOException {
 			long c = 0;
 			while (values.hasNext()) {
 				Record val = values.next();
@@ -96,8 +94,7 @@ public class WordCount {
 		}
 
 		@Override
-		public void reduce(Record key, Iterator<Record> values, TaskContext context)
-				throws IOException {
+		public void reduce(Record key, Iterator<Record> values, TaskContext context) throws IOException {
 			long count = 0;
 			while (values.hasNext()) {
 				Record val = values.next();
@@ -125,15 +122,13 @@ public class WordCount {
 		job.setCombinerClass(SumCombiner.class);
 		job.setReducerClass(SumReducer.class);
 		job.setMapOutputKeySchema(new Column[] { new Column("word", OdpsType.STRING) });
-		job.setMapOutputValueSchema(new Column[] { new Column("count",
-				OdpsType.BIGINT) });
+		job.setMapOutputValueSchema(new Column[] { new Column("count", OdpsType.BIGINT) });
 
 		InputUtils.addTable(TableInfo.builder().tableName(args[0]).build(), job);
 		OutputUtils.addTable(TableInfo.builder().tableName(args[1]).build(), job);
 
-		Class<? extends JobRunner> runnerClz = (Class<? extends JobRunner>) Class
-				.forName(System.getProperty("job.runner.class",
-						"com.aliyun.odps.mapred.LocalJobRunner"));
+		Class<? extends JobRunner> runnerClz = (Class<? extends JobRunner>) Class.forName(System
+				.getProperty("job.runner.class", "com.aliyun.odps.mapred.LocalJobRunner"));
 		JobRunner runner = ReflectionUtils.newInstance(runnerClz, job);
 		RunningJob rj = runner.submit();
 		rj.waitForCompletion();

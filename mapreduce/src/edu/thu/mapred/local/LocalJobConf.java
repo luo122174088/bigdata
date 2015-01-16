@@ -1,4 +1,4 @@
-package com.aliyun.odps.mapred.local.conf;
+package edu.thu.mapred.local;
 
 import com.aliyun.odps.Column;
 import com.aliyun.odps.conf.Configuration;
@@ -42,5 +42,13 @@ public class LocalJobConf extends JobConf {
 			set(OUTPUT_SCHEMA, schema);
 		}
 		return SchemaUtils.fromString(schema);
+	}
+
+	public int getSortFactor() {
+		return 10;
+	}
+
+	public RawRecordComparator getMapOutputKeyComparator() {
+		return new LocalRecord.DefaultRecordComparator(getMapOutputKeySchema());
 	}
 }
