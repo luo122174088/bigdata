@@ -5,11 +5,15 @@ import com.aliyun.odps.conf.Configuration;
 import com.aliyun.odps.mapred.conf.JobConf;
 import com.aliyun.odps.mapred.utils.SchemaUtils;
 
+import edu.thu.mapred.local.util.RecordComparator;
+
 public class LocalJobConf extends JobConf {
 
-	static final String LOCAL_JOB_DIR = "local.job.dir";
+	private static final String LOCAL_JOB_DIR = "local.job.dir";
 
-	static final String OUTPUT_SCHEMA = "output.schema";
+	private static final String OUTPUT_SCHEMA = "output.schema";
+
+	private static final String INPUT_PATH = "input.path";
 
 	public LocalJobConf(Configuration conf) {
 		super(conf);
@@ -32,7 +36,11 @@ public class LocalJobConf extends JobConf {
 	}
 
 	public String getMapInputPath() {
-		return "data/";
+		return get(INPUT_PATH);
+	}
+
+	public void setMapInputPath(String path) {
+		set(INPUT_PATH, path);
 	}
 
 	public Column[] getOutputSchema() {
@@ -44,11 +52,15 @@ public class LocalJobConf extends JobConf {
 		return SchemaUtils.fromString(schema);
 	}
 
+	public int getMapThreads() {
+		return 2;
+	}
+
 	public int getSortFactor() {
 		return 10;
 	}
 
-	public RawRecordComparator getMapOutputKeyComparator() {
+	public RecordComparator getMapOutputKeyComparator() {
 		return new LocalRecord.DefaultRecordComparator(getMapOutputKeySchema());
 	}
 }

@@ -20,22 +20,22 @@ public class CsvRecordReader {
 	}
 
 	public Record read() throws IOException {
-		if (!reader.readRecord()) {
+		if (!this.reader.readRecord()) {
 			return null;
 		}
-		if (record == null) {
-			int columns = reader.getColumnCount();
+		if (this.record == null) {
+			int columns = this.reader.getColumnCount();
 			Column[] schema = new Column[columns];
 			for (int i = 0; i < columns; i++) {
 				schema[i] = new Column("col" + i, OdpsType.STRING);
 			}
-			record = new LocalRecord(schema);
+			this.record = new LocalRecord(schema);
 		}
-		record.fastSet(reader.getValues());
-		return record;
+		this.record.fastSet(this.reader.getValues());
+		return this.record;
 	}
 
 	public void close() {
-		reader.close();
+		this.reader.close();
 	}
 }

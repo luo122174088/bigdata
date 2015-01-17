@@ -32,9 +32,9 @@ public class WordCount {
 
 		@Override
 		public void setup(TaskContext context) throws IOException {
-			word = context.createMapOutputKeyRecord();
-			one = context.createMapOutputValueRecord();
-			one.set(0, 1L);
+			this.word = context.createMapOutputKeyRecord();
+			this.one = context.createMapOutputValueRecord();
+			this.one.set(0, 1L);
 		}
 
 		@Override
@@ -42,8 +42,8 @@ public class WordCount {
 			for (int i = 0; i < record.getColumnCount(); i++) {
 				String[] words = record.get(i).toString().split("\\s+");
 				for (String w : words) {
-					word.set(0, w);
-					context.write(word, one);
+					this.word.set(0, w);
+					context.write(this.word, this.one);
 				}
 			}
 		}
@@ -62,7 +62,7 @@ public class WordCount {
 
 		@Override
 		public void setup(TaskContext context) throws IOException {
-			count = context.createMapOutputValueRecord();
+			this.count = context.createMapOutputValueRecord();
 		}
 
 		@Override
@@ -72,8 +72,8 @@ public class WordCount {
 				Record val = values.next();
 				c += (Long) val.get(0);
 			}
-			count.set(0, c);
-			context.write(key, count);
+			this.count.set(0, c);
+			context.write(key, this.count);
 		}
 
 		@Override
@@ -90,7 +90,7 @@ public class WordCount {
 
 		@Override
 		public void setup(TaskContext context) throws IOException {
-			result = context.createOutputRecord();
+			this.result = context.createOutputRecord();
 		}
 
 		@Override
@@ -100,9 +100,9 @@ public class WordCount {
 				Record val = values.next();
 				count += (Long) val.get(0);
 			}
-			result.set(0, key.get(0));
-			result.set(1, count);
-			context.write(result);
+			this.result.set(0, key.get(0));
+			this.result.set(1, count);
+			context.write(this.result);
 		}
 
 		@Override
@@ -118,6 +118,9 @@ public class WordCount {
 		}
 
 		JobConf job = new JobConf();
+
+		job.set("input.path", "10M-5");
+
 		job.setMapperClass(TokenizerMapper.class);
 		job.setCombinerClass(SumCombiner.class);
 		job.setReducerClass(SumReducer.class);

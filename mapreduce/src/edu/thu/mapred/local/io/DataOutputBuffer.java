@@ -10,11 +10,11 @@ public class DataOutputBuffer extends DataOutputStream {
 
 	private static class Buffer extends ByteArrayOutputStream {
 		public byte[] getData() {
-			return buf;
+			return this.buf;
 		}
 
 		public int getLength() {
-			return count;
+			return this.count;
 		}
 
 		public Buffer() {
@@ -26,14 +26,14 @@ public class DataOutputBuffer extends DataOutputStream {
 		}
 
 		public void write(DataInput in, int len) throws IOException {
-			int newcount = count + len;
-			if (newcount > buf.length) {
-				byte newbuf[] = new byte[Math.max(buf.length << 1, newcount)];
-				System.arraycopy(buf, 0, newbuf, 0, count);
-				buf = newbuf;
+			int newcount = this.count + len;
+			if (newcount > this.buf.length) {
+				byte newbuf[] = new byte[Math.max(this.buf.length << 1, newcount)];
+				System.arraycopy(this.buf, 0, newbuf, 0, this.count);
+				this.buf = newbuf;
 			}
-			in.readFully(buf, count, len);
-			count = newcount;
+			in.readFully(this.buf, this.count, len);
+			this.count = newcount;
 		}
 	}
 
@@ -53,33 +53,25 @@ public class DataOutputBuffer extends DataOutputStream {
 		this.buffer = buffer;
 	}
 
-	/**
-	 * Returns the current contents of the buffer. Data is only valid to
-	 * {@link #getLength()}.
-	 */
 	public byte[] getData() {
-		return buffer.getData();
+		return this.buffer.getData();
 	}
 
-	/** Returns the length of the valid data currently in the buffer. */
 	public int getLength() {
-		return buffer.getLength();
+		return this.buffer.getLength();
 	}
 
-	/** Resets the buffer to empty. */
 	public DataOutputBuffer reset() {
 		this.written = 0;
-		buffer.reset();
+		this.buffer.reset();
 		return this;
 	}
 
-	/** Writes bytes from a DataInput directly into the buffer. */
 	public void write(DataInput in, int length) throws IOException {
-		buffer.write(in, length);
+		this.buffer.write(in, length);
 	}
 
-	/** Write to a file stream */
 	public void writeTo(OutputStream out) throws IOException {
-		buffer.writeTo(out);
+		this.buffer.writeTo(out);
 	}
 }

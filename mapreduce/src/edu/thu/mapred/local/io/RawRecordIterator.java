@@ -1,8 +1,6 @@
-package edu.thu.mapred.local;
+package edu.thu.mapred.local.io;
 
 import java.io.IOException;
-
-import edu.thu.mapred.local.io.DataInputBuffer;
 
 public interface RawRecordIterator {
 

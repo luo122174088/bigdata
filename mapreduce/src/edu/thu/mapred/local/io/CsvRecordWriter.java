@@ -11,19 +11,19 @@ public class CsvRecordWriter {
 	private CsvWriter writer;
 
 	public CsvRecordWriter(File file) throws IOException {
-		writer = new CsvWriter(file.getAbsolutePath());
+		this.writer = new CsvWriter(file.getAbsolutePath());
 	}
 
 	public void write(Record record) throws IOException {
 		int count = record.getColumnCount();
 		for (int i = 0; i < count; i++) {
-			writer.write(record.get(i).toString());
+			this.writer.write(record.get(i).toString());
 		}
-		writer.endRecord();
+		this.writer.endRecord();
 	}
 
 	public void close() throws IOException {
-		writer.close();
+		this.writer.close();
 	}
 
 }

@@ -27,7 +27,7 @@ public abstract class LocalTaskContext implements TaskContext {
 
 	@Override
 	public JobConf getJobConf() {
-		return conf;
+		return this.conf;
 	}
 
 	@Override
@@ -37,27 +37,27 @@ public abstract class LocalTaskContext implements TaskContext {
 
 	@Override
 	public Column[] getMapOutputKeySchema() {
-		return conf.getMapOutputKeySchema();
+		return this.conf.getMapOutputKeySchema();
 	}
 
 	@Override
 	public Column[] getMapOutputValueSchema() {
-		return conf.getMapOutputValueSchema();
+		return this.conf.getMapOutputValueSchema();
 	}
 
 	@Override
 	public Class<? extends Mapper> getMapperClass() throws ClassNotFoundException {
-		return conf.getMapperClass();
+		return this.conf.getMapperClass();
 	}
 
 	@Override
 	public Class<? extends Reducer> getCombinerClass() throws ClassNotFoundException {
-		return conf.getCombinerClass();
+		return this.conf.getCombinerClass();
 	}
 
 	@Override
 	public Class<? extends Reducer> getReducerClass() throws ClassNotFoundException {
-		return conf.getReducerClass();
+		return this.conf.getReducerClass();
 	}
 
 	@Override
@@ -77,7 +77,7 @@ public abstract class LocalTaskContext implements TaskContext {
 
 	@Override
 	public Record createOutputRecord() throws IOException {
-		Record record = new LocalRecord(conf.getOutputSchema());
+		Record record = new LocalRecord(this.conf.getOutputSchema());
 
 		return record;
 	}
@@ -99,13 +99,13 @@ public abstract class LocalTaskContext implements TaskContext {
 
 	@Override
 	public Record createMapOutputKeyRecord() throws IOException {
-		return new LocalRecord(conf.getMapOutputKeySchema());
+		return new LocalRecord(this.conf.getMapOutputKeySchema());
 
 	}
 
 	@Override
 	public Record createMapOutputValueRecord() throws IOException {
-		return new LocalRecord(conf.getMapOutputValueSchema());
+		return new LocalRecord(this.conf.getMapOutputValueSchema());
 	}
 
 	@Override

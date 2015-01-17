@@ -14,20 +14,20 @@ import com.aliyun.odps.mapred.TaskId;
 
 import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.LocalRecord;
-import edu.thu.mapred.local.RawRecordComparator;
-import edu.thu.mapred.local.RawRecordIterator;
-import edu.thu.mapred.local.TaskFileHelper;
 import edu.thu.mapred.local.io.DataInputBuffer;
 import edu.thu.mapred.local.io.IndexSorter;
+import edu.thu.mapred.local.io.IndexSorter.Sortable;
 import edu.thu.mapred.local.io.LocalRecordWriter;
+import edu.thu.mapred.local.io.RawRecordIterator;
 import edu.thu.mapred.local.io.RecordMerger;
 import edu.thu.mapred.local.io.RecordMerger.RecordSegment;
-import edu.thu.mapred.local.io.Sortable;
+import edu.thu.mapred.local.io.TaskFileHelper;
+import edu.thu.mapred.local.util.RecordComparator;
 
 class MapOutputCollector implements Sortable {
 	private final LocalJobConf conf;
 
-	private RawRecordComparator comparator;
+	private RecordComparator comparator;
 
 	private boolean combine = false;
 
@@ -59,79 +59,91 @@ class MapOutputCollector implements Sortable {
 	private final int softBufferLimit;
 	private final int minSpillsForCombine = 3;
 
-	private final IndexSorter sorter;
+	private final IndexSorter sorter = new IndexSorter();
 	private final ReentrantLock spillLock = new ReentrantLock();
-	private final Condition spillDone = spillLock.newCondition();
-	private final Condition spillReady = spillLock.newCondition();
+	private final Condition spillDone = this.spillLock.newCondition();
+	private final Condition spillReady = this.spillLock.newCondition();
 	private final MapDataOutput outBuffer = new MapDataOutput();
 	private volatile boolean spillThreadRunning = false;
-	private final SpillThread spillThread = new SpillThread();
+	private SpillThread spillThread;
 
+	private TaskId id;
 	private final TaskFileHelper fileHelper;
-	private final TaskId id;
 	private final List<File> mapFiles;
 
-	public MapOutputCollector(LocalJobConf conf, TaskFileHelper fileHelper, TaskId id,
-			List<File> mapFiles) throws Exception {
+	public MapOutputCollector(LocalJobConf conf, TaskFileHelper fileHelper, List<File> mapFiles)
+			throws Exception {
 		this.conf = conf;
 		this.fileHelper = fileHelper;
-		sorter = new IndexSorter();
-
-		int maxMemUsage = sortmb << 20;
-		int recordCapacity = (int) (maxMemUsage * recper);
-		recordCapacity -= recordCapacity % RECSIZE;
-		kvbuffer = new byte[maxMemUsage - recordCapacity];
-		bufvoid = kvbuffer.length;
-		recordCapacity /= RECSIZE;
-		kvoffsets = new int[recordCapacity];
-		kvindices = new int[recordCapacity * ACCTSIZE];
-		softBufferLimit = (int) (kvbuffer.length * spillper);
-		softRecordLimit = (int) (kvoffsets.length * spillper);
-
-		comparator = conf.getMapOutputKeyComparator();
-
-		combine = conf.getCombinerClass() != null;
-		this.id = id;
 		this.mapFiles = mapFiles;
 
-		spillThread.setDaemon(true);
-		spillThread.setName("SpillThread");
-		spillLock.lock();
+		int maxMemUsage = this.sortmb << 20;
+		int recordCapacity = (int) (maxMemUsage * this.recper);
+		recordCapacity -= recordCapacity % RECSIZE;
+		this.kvbuffer = new byte[maxMemUsage - recordCapacity];
+		this.bufvoid = this.kvbuffer.length;
+		recordCapacity /= RECSIZE;
+		this.kvoffsets = new int[recordCapacity];
+		this.kvindices = new int[recordCapacity * ACCTSIZE];
+		this.softBufferLimit = (int) (this.kvbuffer.length * this.spillper);
+		this.softRecordLimit = (int) (this.kvoffsets.length * this.spillper);
+
+		this.comparator = conf.getMapOutputKeyComparator();
+		this.combine = conf.getCombinerClass() != null;
+
+	}
+
+	public void init(TaskId id) throws Exception {
+		this.id = id;
+
+		this.kvstart = 0;
+		this.kvend = 0;
+		this.kvindex = 0;
+		this.bufindex = 0;
+		this.bufmark = 0;
+		this.numSpills = 0;
+		this.sortSpillException = null;
+
+		this.spillThread = new SpillThread();
+		this.spillThread.setDaemon(true);
+		this.spillThread.setName("SpillThread");
+		this.spillLock.lock();
 		try {
-			spillThread.start();
-			while (!spillThreadRunning) {
-				spillDone.await();
+			this.spillThread.start();
+			while (!this.spillThreadRunning) {
+				this.spillDone.await();
 			}
 		} catch (InterruptedException e) {
 			throw e;
 		} finally {
-			spillLock.unlock();
+			this.spillLock.unlock();
 		}
+
 	}
 
 	public synchronized void collect(Record key, Record value) throws IOException {
-		final int kvnext = (kvindex + 1) % kvoffsets.length;
+		final int kvnext = (this.kvindex + 1) % this.kvoffsets.length;
 
 		checkFull(kvnext);
 		try {
 
-			int keystart = bufindex;
+			int keystart = this.bufindex;
 			serialize(key);
-			if (bufindex < keystart) {
+			if (this.bufindex < keystart) {
 
-				outBuffer.reset();
+				this.outBuffer.reset();
 				keystart = 0;
 			}
 
-			final int valstart = bufindex;
+			final int valstart = this.bufindex;
 			serialize(value);
-			outBuffer.mark();
+			this.outBuffer.mark();
 
-			int ind = kvindex * ACCTSIZE;
-			kvoffsets[kvindex] = ind;
-			kvindices[ind + KEYSTART] = keystart;
-			kvindices[ind + VALSTART] = valstart;
-			kvindex = kvnext;
+			int ind = this.kvindex * ACCTSIZE;
+			this.kvoffsets[this.kvindex] = ind;
+			this.kvindices[ind + KEYSTART] = keystart;
+			this.kvindices[ind + VALSTART] = valstart;
+			this.kvindex = kvnext;
 		} catch (BufferTooSmallException e) {
 			spillSingleRecord(key, value);
 			return;
@@ -139,27 +151,27 @@ class MapOutputCollector implements Sortable {
 	}
 
 	private void serialize(Record record) throws IOException {
-		((LocalRecord) record).serialize(outBuffer);
+		((LocalRecord) record).serialize(this.outBuffer);
 	}
 
 	private void checkFull(int kvnext) throws IOException {
-		spillLock.lock();
+		this.spillLock.lock();
 		try {
 			boolean kvfull;
 			do {
-				if (sortSpillException != null) {
-					throw new IOException(sortSpillException);
+				if (this.sortSpillException != null) {
+					throw new IOException(this.sortSpillException);
 				}
-				kvfull = kvnext == kvstart;
-				final boolean kvsoftlimit = ((kvnext > kvend) ? kvnext - kvend > softRecordLimit : kvend
-						- kvnext <= kvoffsets.length - softRecordLimit);
-				if (kvstart == kvend && kvsoftlimit) {
+				kvfull = kvnext == this.kvstart;
+				final boolean kvsoftlimit = ((kvnext > this.kvend) ? kvnext - this.kvend > this.softRecordLimit
+						: this.kvend - kvnext <= this.kvoffsets.length - this.softRecordLimit);
+				if (this.kvstart == this.kvend && kvsoftlimit) {
 					startSpill();
 				}
 				if (kvfull) {
 					try {
-						while (kvstart != kvend) {
-							spillDone.await();
+						while (this.kvstart != this.kvend) {
+							this.spillDone.await();
 						}
 					} catch (InterruptedException e) {
 						throw new IOException(e);
@@ -167,24 +179,27 @@ class MapOutputCollector implements Sortable {
 				}
 			} while (kvfull);
 		} finally {
-			spillLock.unlock();
+			this.spillLock.unlock();
 		}
 	}
 
+	@Override
 	public int compare(int i, int j) {
-		int ii = kvoffsets[i % kvoffsets.length];
-		int ij = kvoffsets[j % kvoffsets.length];
-		return comparator.compare(kvbuffer, kvindices[ii + KEYSTART], kvindices[ii + VALSTART]
-				- kvindices[ii + KEYSTART], kvbuffer, kvindices[ij + KEYSTART], kvindices[ij + VALSTART]
-				- kvindices[ij + KEYSTART]);
+		int ii = this.kvoffsets[i % this.kvoffsets.length];
+		int ij = this.kvoffsets[j % this.kvoffsets.length];
+		return this.comparator.compare(this.kvbuffer, this.kvindices[ii + KEYSTART], this.kvindices[ii
+				+ VALSTART]
+				- this.kvindices[ii + KEYSTART], this.kvbuffer, this.kvindices[ij + KEYSTART],
+				this.kvindices[ij + VALSTART] - this.kvindices[ij + KEYSTART]);
 	}
 
+	@Override
 	public void swap(int i, int j) {
-		i %= kvoffsets.length;
-		j %= kvoffsets.length;
-		int tmp = kvoffsets[i];
-		kvoffsets[i] = kvoffsets[j];
-		kvoffsets[j] = tmp;
+		i %= this.kvoffsets.length;
+		j %= this.kvoffsets.length;
+		int tmp = this.kvoffsets[i];
+		this.kvoffsets[i] = this.kvoffsets[j];
+		this.kvoffsets[j] = tmp;
 	}
 
 	protected class MapDataOutput extends DataOutputStream {
@@ -198,22 +213,25 @@ class MapOutputCollector implements Sortable {
 		}
 
 		public int mark() {
-			bufmark = bufindex;
-			return bufindex;
+			MapOutputCollector.this.bufmark = MapOutputCollector.this.bufindex;
+			return MapOutputCollector.this.bufindex;
 		}
 
 		public synchronized void reset() throws IOException {
-			int headbytelen = bufvoid - bufmark;
-			bufvoid = bufmark;
-			if (bufindex + headbytelen < bufstart) {
-				System.arraycopy(kvbuffer, 0, kvbuffer, headbytelen, bufindex);
-				System.arraycopy(kvbuffer, bufvoid, kvbuffer, 0, headbytelen);
-				bufindex += headbytelen;
+			int headbytelen = MapOutputCollector.this.bufvoid - MapOutputCollector.this.bufmark;
+			MapOutputCollector.this.bufvoid = MapOutputCollector.this.bufmark;
+			if (MapOutputCollector.this.bufindex + headbytelen < MapOutputCollector.this.bufstart) {
+				System.arraycopy(MapOutputCollector.this.kvbuffer, 0, MapOutputCollector.this.kvbuffer,
+						headbytelen, MapOutputCollector.this.bufindex);
+				System.arraycopy(MapOutputCollector.this.kvbuffer, MapOutputCollector.this.bufvoid,
+						MapOutputCollector.this.kvbuffer, 0, headbytelen);
+				MapOutputCollector.this.bufindex += headbytelen;
 			} else {
-				byte[] keytmp = new byte[bufindex];
-				System.arraycopy(kvbuffer, 0, keytmp, 0, bufindex);
-				bufindex = 0;
-				write(kvbuffer, bufmark, headbytelen);
+				byte[] keytmp = new byte[MapOutputCollector.this.bufindex];
+				System.arraycopy(MapOutputCollector.this.kvbuffer, 0, keytmp, 0,
+						MapOutputCollector.this.bufindex);
+				MapOutputCollector.this.bufindex = 0;
+				write(MapOutputCollector.this.kvbuffer, MapOutputCollector.this.bufmark, headbytelen);
 				write(keytmp);
 			}
 		}
@@ -225,52 +243,59 @@ class MapOutputCollector implements Sortable {
 
 		@Override
 		public synchronized void write(int v) throws IOException {
-			scratch[0] = (byte) v;
-			write(scratch, 0, 1);
+			this.scratch[0] = (byte) v;
+			write(this.scratch, 0, 1);
 		}
 
 		@Override
 		public synchronized void write(byte b[], int off, int len) throws IOException {
 			boolean buffull = false;
 			boolean wrap = false;
-			spillLock.lock();
+			MapOutputCollector.this.spillLock.lock();
 			try {
 				do {
-					if (sortSpillException != null) {
-						throw (IOException) new IOException("Spill failed").initCause(sortSpillException);
+					if (MapOutputCollector.this.sortSpillException != null) {
+						throw (IOException) new IOException("Spill failed")
+								.initCause(MapOutputCollector.this.sortSpillException);
 					}
 
-					if (bufstart <= bufend && bufend <= bufindex) {
-						buffull = bufindex + len > bufvoid;
-						wrap = (bufvoid - bufindex) + bufstart > len;
+					if (MapOutputCollector.this.bufstart <= MapOutputCollector.this.bufend
+							&& MapOutputCollector.this.bufend <= MapOutputCollector.this.bufindex) {
+						buffull = MapOutputCollector.this.bufindex + len > MapOutputCollector.this.bufvoid;
+						wrap = (MapOutputCollector.this.bufvoid - MapOutputCollector.this.bufindex)
+								+ MapOutputCollector.this.bufstart > len;
 					} else {
 						wrap = false;
-						buffull = bufindex + len > bufstart;
+						buffull = MapOutputCollector.this.bufindex + len > MapOutputCollector.this.bufstart;
 					}
 
-					if (kvstart == kvend) {
-						if (kvend != kvindex) {
+					if (MapOutputCollector.this.kvstart == MapOutputCollector.this.kvend) {
+						if (MapOutputCollector.this.kvend != MapOutputCollector.this.kvindex) {
 
-							final boolean bufsoftlimit = (bufindex > bufend) ? bufindex - bufend > softBufferLimit
-									: bufend - bufindex < bufvoid - softBufferLimit;
+							final boolean bufsoftlimit = (MapOutputCollector.this.bufindex > MapOutputCollector.this.bufend) ? MapOutputCollector.this.bufindex
+									- MapOutputCollector.this.bufend > MapOutputCollector.this.softBufferLimit
+									: MapOutputCollector.this.bufend - MapOutputCollector.this.bufindex < MapOutputCollector.this.bufvoid
+											- MapOutputCollector.this.softBufferLimit;
 							if (bufsoftlimit || (buffull && !wrap)) {
 								startSpill();
 							}
 						} else if (buffull && !wrap) {
-							final int size = ((bufend <= bufindex) ? bufindex - bufend : (bufvoid - bufend)
-									+ bufindex)
+							final int size = ((MapOutputCollector.this.bufend <= MapOutputCollector.this.bufindex) ? MapOutputCollector.this.bufindex
+									- MapOutputCollector.this.bufend
+									: (MapOutputCollector.this.bufvoid - MapOutputCollector.this.bufend)
+											+ MapOutputCollector.this.bufindex)
 									+ len;
-							bufstart = bufend = bufindex = bufmark = 0;
-							kvstart = kvend = kvindex = 0;
-							bufvoid = kvbuffer.length;
+							MapOutputCollector.this.bufstart = MapOutputCollector.this.bufend = MapOutputCollector.this.bufindex = MapOutputCollector.this.bufmark = 0;
+							MapOutputCollector.this.kvstart = MapOutputCollector.this.kvend = MapOutputCollector.this.kvindex = 0;
+							MapOutputCollector.this.bufvoid = MapOutputCollector.this.kvbuffer.length;
 							throw new BufferTooSmallException(size + " bytes");
 						}
 					}
 
 					if (buffull && !wrap) {
 						try {
-							while (kvstart != kvend) {
-								spillDone.await();
+							while (MapOutputCollector.this.kvstart != MapOutputCollector.this.kvend) {
+								MapOutputCollector.this.spillDone.await();
 							}
 						} catch (InterruptedException e) {
 							throw new IOException(e);
@@ -278,48 +303,51 @@ class MapOutputCollector implements Sortable {
 					}
 				} while (buffull && !wrap);
 			} finally {
-				spillLock.unlock();
+				MapOutputCollector.this.spillLock.unlock();
 			}
 			if (buffull) {
-				final int gaplen = bufvoid - bufindex;
-				System.arraycopy(b, off, kvbuffer, bufindex, gaplen);
+				final int gaplen = MapOutputCollector.this.bufvoid - MapOutputCollector.this.bufindex;
+				System.arraycopy(b, off, MapOutputCollector.this.kvbuffer,
+						MapOutputCollector.this.bufindex, gaplen);
 				len -= gaplen;
 				off += gaplen;
-				bufindex = 0;
+				MapOutputCollector.this.bufindex = 0;
 			}
-			System.arraycopy(b, off, kvbuffer, bufindex, len);
-			bufindex += len;
+			System.arraycopy(b, off, MapOutputCollector.this.kvbuffer, MapOutputCollector.this.bufindex,
+					len);
+			MapOutputCollector.this.bufindex += len;
 		}
 	}
 
 	public synchronized void flush() throws Exception {
-		spillLock.lock();
+		this.spillLock.lock();
 		try {
-			while (kvstart != kvend) {
-				spillDone.await();
+			while (this.kvstart != this.kvend) {
+				this.spillDone.await();
 			}
-			if (sortSpillException != null) {
-				throw (IOException) new IOException("Spill failed").initCause(sortSpillException);
+			if (this.sortSpillException != null) {
+				throw (IOException) new IOException("Spill failed").initCause(this.sortSpillException);
 			}
-			if (kvend != kvindex) {
-				kvend = kvindex;
-				bufend = bufmark;
+			if (this.kvend != this.kvindex) {
+				this.kvend = this.kvindex;
+				this.bufend = this.bufmark;
 				sortAndSpill();
 			}
 		} catch (InterruptedException e) {
 			throw (IOException) new IOException("Buffer interrupted while waiting for the writer")
 					.initCause(e);
 		} finally {
-			spillLock.unlock();
+			this.spillLock.unlock();
 		}
 
 		try {
-			spillThread.interrupt();
-			spillThread.join();
+			this.spillThread.interrupt();
+			this.spillThread.join();
+			this.spillThread = null;
 		} catch (InterruptedException e) {
 			throw e;
 		}
-		kvbuffer = null;
+		// kvbuffer = null;
 		mergeParts();
 	}
 
@@ -329,61 +357,63 @@ class MapOutputCollector implements Sortable {
 	protected class SpillThread extends Thread {
 		@Override
 		public void run() {
-			spillLock.lock();
-			spillThreadRunning = true;
+			MapOutputCollector.this.spillLock.lock();
+			MapOutputCollector.this.spillThreadRunning = true;
 			try {
 				while (true) {
-					spillDone.signal();
-					while (kvstart == kvend) {
-						spillReady.await();
+					MapOutputCollector.this.spillDone.signal();
+					while (MapOutputCollector.this.kvstart == MapOutputCollector.this.kvend) {
+						MapOutputCollector.this.spillReady.await();
 					}
 					try {
-						spillLock.unlock();
+						MapOutputCollector.this.spillLock.unlock();
 						sortAndSpill();
 					} catch (Exception e) {
-						sortSpillException = e;
+						MapOutputCollector.this.sortSpillException = e;
 					} finally {
-						spillLock.lock();
-						if (bufend < bufindex && bufindex < bufstart) {
-							bufvoid = kvbuffer.length;
+						MapOutputCollector.this.spillLock.lock();
+						if (MapOutputCollector.this.bufend < MapOutputCollector.this.bufindex
+								&& MapOutputCollector.this.bufindex < MapOutputCollector.this.bufstart) {
+							MapOutputCollector.this.bufvoid = MapOutputCollector.this.kvbuffer.length;
 						}
-						kvstart = kvend;
-						bufstart = bufend;
+						MapOutputCollector.this.kvstart = MapOutputCollector.this.kvend;
+						MapOutputCollector.this.bufstart = MapOutputCollector.this.bufend;
 					}
 				}
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
 			} finally {
-				spillLock.unlock();
-				spillThreadRunning = false;
+				MapOutputCollector.this.spillLock.unlock();
+				MapOutputCollector.this.spillThreadRunning = false;
 			}
 		}
 	}
 
 	private synchronized void startSpill() {
-		kvend = kvindex;
-		bufend = bufmark;
-		spillReady.signal();
+		this.kvend = this.kvindex;
+		this.bufend = this.bufmark;
+		this.spillReady.signal();
 	}
 
 	private void sortAndSpill() throws Exception {
 
-		File file = fileHelper.getSpillFile(numSpills);
+		File file = this.fileHelper.getSpillFile(this.numSpills);
 
-		final int endPosition = (kvend > kvstart) ? kvend : kvoffsets.length + kvend;
-		sorter.sort(MapOutputCollector.this, kvstart, endPosition);
-		int spindex = kvstart;
+		final int endPosition = (this.kvend > this.kvstart) ? this.kvend : this.kvoffsets.length
+				+ this.kvend;
+		this.sorter.sort(MapOutputCollector.this, this.kvstart, endPosition);
+		int spindex = this.kvstart;
 		InMemValBytes value = new InMemValBytes();
 		LocalRecordWriter writer = null;
 		try {
-			writer = new LocalRecordWriter(conf, file);
-			if (!combine) {
+			writer = new LocalRecordWriter(this.conf, file);
+			if (!this.combine) {
 				DataInputBuffer key = new DataInputBuffer();
 				while (spindex < endPosition) {
-					final int kvoff = kvoffsets[spindex % kvoffsets.length];
+					final int kvoff = this.kvoffsets[spindex % this.kvoffsets.length];
 					getVBytesForOffset(kvoff, value);
-					key.reset(kvbuffer, kvindices[kvoff + KEYSTART],
-							(kvindices[kvoff + VALSTART] - kvindices[kvoff + KEYSTART]));
+					key.reset(this.kvbuffer, this.kvindices[kvoff + KEYSTART], (this.kvindices[kvoff
+							+ VALSTART] - this.kvindices[kvoff + KEYSTART]));
 					writer.append(key, value);
 					++spindex;
 				}
@@ -392,27 +422,29 @@ class MapOutputCollector implements Sortable {
 				spindex = endPosition;
 
 				RawRecordIterator kvIter = new MapResultIterator(spstart, spindex);
-				CombineDriver driver = new CombineDriver(conf, id, writer, kvIter);
+				CombineDriver driver = new CombineDriver(this.conf, this.id, writer, kvIter);
 				driver.run();
 			}
 		} finally {
-			if (writer != null)
+			if (writer != null) {
 				writer.close();
+			}
 		}
-		++numSpills;
+		++this.numSpills;
 	}
 
 	private void spillSingleRecord(final Record key, final Record value) throws IOException {
-		File file = fileHelper.getSpillFile(numSpills);
+		File file = this.fileHelper.getSpillFile(this.numSpills);
 		LocalRecordWriter writer = null;
 		try {
-			writer = new LocalRecordWriter(conf, file);
+			writer = new LocalRecordWriter(this.conf, file);
 			writer.append(key, value);
 		} finally {
-			if (null != writer)
+			if (null != writer) {
 				writer.close();
+			}
 		}
-		++numSpills;
+		++this.numSpills;
 	}
 
 	/**
@@ -420,11 +452,13 @@ class MapOutputCollector implements Sortable {
 	 * value bytes. Should only be called during a spill.
 	 */
 	private void getVBytesForOffset(int kvoff, InMemValBytes vbytes) {
-		final int nextindex = (kvoff / ACCTSIZE == (kvend - 1 + kvoffsets.length) % kvoffsets.length) ? bufend
-				: kvindices[(kvoff + ACCTSIZE + KEYSTART) % kvindices.length];
-		int vallen = (nextindex >= kvindices[kvoff + VALSTART]) ? nextindex
-				- kvindices[kvoff + VALSTART] : (bufvoid - kvindices[kvoff + VALSTART]) + nextindex;
-		vbytes.reset(kvbuffer, kvindices[kvoff + VALSTART], vallen);
+		final int nextindex = (kvoff / ACCTSIZE == (this.kvend - 1 + this.kvoffsets.length)
+				% this.kvoffsets.length) ? this.bufend : this.kvindices[(kvoff + ACCTSIZE + KEYSTART)
+				% this.kvindices.length];
+		int vallen = (nextindex >= this.kvindices[kvoff + VALSTART]) ? nextindex
+				- this.kvindices[kvoff + VALSTART] : (this.bufvoid - this.kvindices[kvoff + VALSTART])
+				+ nextindex;
+		vbytes.reset(this.kvbuffer, this.kvindices[kvoff + VALSTART], vallen);
 	}
 
 	/**
@@ -435,14 +469,15 @@ class MapOutputCollector implements Sortable {
 		private int start;
 		private int length;
 
+		@Override
 		public void reset(byte[] buffer, int start, int length) {
 			this.buffer = buffer;
 			this.start = start;
 			this.length = length;
 
-			if (start + length > bufvoid) {
+			if (start + length > MapOutputCollector.this.bufvoid) {
 				this.buffer = new byte[this.length];
-				final int taillen = bufvoid - start;
+				final int taillen = MapOutputCollector.this.bufvoid - start;
 				System.arraycopy(buffer, start, this.buffer, 0, taillen);
 				System.arraycopy(buffer, 0, this.buffer, taillen, length - taillen);
 				this.start = 0;
@@ -460,67 +495,76 @@ class MapOutputCollector implements Sortable {
 
 		public MapResultIterator(int start, int end) {
 			this.end = end;
-			current = start - 1;
+			this.current = start - 1;
 		}
 
+		@Override
 		public boolean next() throws IOException {
-			return ++current < end;
+			return ++this.current < this.end;
 		}
 
+		@Override
 		public DataInputBuffer getKey() throws IOException {
-			final int kvoff = kvoffsets[current % kvoffsets.length];
-			keybuf.reset(kvbuffer, kvindices[kvoff + KEYSTART], kvindices[kvoff + VALSTART]
-					- kvindices[kvoff + KEYSTART]);
-			return keybuf;
+			final int kvoff = MapOutputCollector.this.kvoffsets[this.current
+					% MapOutputCollector.this.kvoffsets.length];
+			this.keybuf.reset(MapOutputCollector.this.kvbuffer, MapOutputCollector.this.kvindices[kvoff
+					+ KEYSTART], MapOutputCollector.this.kvindices[kvoff + VALSTART]
+					- MapOutputCollector.this.kvindices[kvoff + KEYSTART]);
+			return this.keybuf;
 		}
 
+		@Override
 		public DataInputBuffer getValue() throws IOException {
-			getVBytesForOffset(kvoffsets[current % kvoffsets.length], vbytes);
-			return vbytes;
+			getVBytesForOffset(MapOutputCollector.this.kvoffsets[this.current
+					% MapOutputCollector.this.kvoffsets.length], this.vbytes);
+			return this.vbytes;
 		}
 
+		@Override
 		public void close() {
 		}
 	}
 
 	private void mergeParts() throws Exception {
-		final File[] files = new File[numSpills];
+		final File[] files = new File[this.numSpills];
 
-		for (int i = 0; i < numSpills; i++) {
-			files[i] = fileHelper.getSpillFile(i);
+		for (int i = 0; i < this.numSpills; i++) {
+			files[i] = this.fileHelper.getSpillFile(i);
 		}
-		if (numSpills == 1) {
-			files[0].renameTo(new File(files[0].getParentFile(), "file.out"));
+		File finalOutputFile = this.fileHelper.getOutputFile();
+
+		if (this.numSpills == 1) {
+			files[0].renameTo(finalOutputFile);
+			this.mapFiles.add(finalOutputFile);
 			return;
 		}
-		File finalOutputFile = fileHelper.getOutputFile();
 
-		if (numSpills == 0) {
+		if (this.numSpills == 0) {
 
 			finalOutputFile.createNewFile();
 			return;
 		}
-		List<RecordSegment> segments = new ArrayList<RecordSegment>(numSpills);
-		for (int i = 0; i < numSpills; i++) {
+		List<RecordSegment> segments = new ArrayList<RecordSegment>(this.numSpills);
+		for (int i = 0; i < this.numSpills; i++) {
 			RecordSegment s = new RecordSegment(files[i], false);
 			segments.add(i, s);
 		}
 
-		RawRecordIterator kvIter = RecordMerger.merge(segments, fileHelper.getTempDir(),
-				conf.getSortFactor(), comparator);
+		RawRecordIterator kvIter = RecordMerger.merge(segments, this.fileHelper.getTempDir(),
+				this.conf.getSortFactor(), this.comparator);
 
-		LocalRecordWriter writer = new LocalRecordWriter(conf, finalOutputFile);
-		if (!combine || numSpills < minSpillsForCombine) {
+		LocalRecordWriter writer = new LocalRecordWriter(this.conf, finalOutputFile);
+		if (!this.combine || this.numSpills < this.minSpillsForCombine) {
 			RecordMerger.writeFile(kvIter, writer);
 		} else {
 			// TODO
-			CombineDriver driver = new CombineDriver(conf, id, writer, kvIter);
+			CombineDriver driver = new CombineDriver(this.conf, this.id, writer, kvIter);
 			driver.run();
 		}
-		mapFiles.add(finalOutputFile);
+		this.mapFiles.add(finalOutputFile);
 		writer.close();
 
-		for (int i = 0; i < numSpills; i++) {
+		for (int i = 0; i < this.numSpills; i++) {
 			files[i].delete();
 		}
 	}

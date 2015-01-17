@@ -12,10 +12,10 @@ import com.aliyun.odps.mapred.TaskId;
 import edu.thu.mapred.local.BaseDriver;
 import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.LocalTaskContext;
-import edu.thu.mapred.local.RawRecordComparator;
-import edu.thu.mapred.local.RawRecordIterator;
 import edu.thu.mapred.local.io.LocalRecordIterator;
 import edu.thu.mapred.local.io.LocalRecordWriter;
+import edu.thu.mapred.local.io.RawRecordIterator;
+import edu.thu.mapred.local.util.RecordComparator;
 
 public class CombineDriver extends BaseDriver {
 
@@ -24,26 +24,27 @@ public class CombineDriver extends BaseDriver {
 	private Column[] keySchema;
 	private Column[] valueSchema;
 
-	private RawRecordComparator comparator;
+	private RecordComparator comparator;
 
 	public CombineDriver(LocalJobConf conf, TaskId id, LocalRecordWriter writer,
 			RawRecordIterator iterator) {
-		super(conf, id);
+		super(conf);
 		this.writer = writer;
 		this.in = iterator;
 		this.keySchema = conf.getMapOutputKeySchema();
 		this.valueSchema = conf.getMapOutputValueSchema();
-
+		this.comparator = conf.getMapOutputKeyComparator();
 	}
 
 	@Override
-	public void run() throws Exception {
-		Class<? extends Reducer> combinerClass = conf.getCombinerClass();
+	public void runInternal() throws Exception {
+		Class<? extends Reducer> combinerClass = this.conf.getCombinerClass();
 
 		Reducer combiner = combinerClass.newInstance();
 		TaskContext context = new CombineTaskContext();
 		combiner.setup(context);
-		LocalRecordIterator iterator = new LocalRecordIterator(in, comparator, keySchema, valueSchema);
+		LocalRecordIterator iterator = new LocalRecordIterator(this.in, this.comparator,
+				this.keySchema, this.valueSchema);
 		try {
 			while (iterator.more()) {
 				combiner.reduce(iterator.getKey(), iterator, context);
@@ -54,15 +55,20 @@ public class CombineDriver extends BaseDriver {
 		}
 	}
 
+	@Override
+	public String getTaskDir() {
+		return this.conf.getMapDir() + this.id.toString() + "/";
+	}
+
 	class CombineTaskContext extends LocalTaskContext implements TaskContext {
 
 		public CombineTaskContext() {
-			super(conf, id);
+			super(CombineDriver.this.conf, CombineDriver.this.id);
 		}
 
 		@Override
 		public void write(Record key, Record value) throws IOException {
-			writer.append(key, value);
+			CombineDriver.this.writer.append(key, value);
 		}
 
 		@Override

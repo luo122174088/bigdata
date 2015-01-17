@@ -20,7 +20,7 @@ public class LocalJobRunner implements JobRunner {
 
 	@Override
 	public Configuration getConf() {
-		return conf;
+		return this.conf;
 	}
 
 	@Override
@@ -30,7 +30,7 @@ public class LocalJobRunner implements JobRunner {
 
 	@Override
 	public RunningJob submit() throws OdpsException {
-		RunningJob job = new LocalRunningJob(conf);
+		RunningJob job = new LocalRunningJob(this.conf);
 		return job;
 	}
 

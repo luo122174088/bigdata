@@ -17,15 +17,15 @@ public class DataInputBuffer extends DataInputStream {
 		}
 
 		public byte[] getData() {
-			return buf;
+			return this.buf;
 		}
 
 		public int getPosition() {
-			return pos;
+			return this.pos;
 		}
 
 		public int getLength() {
-			return count;
+			return this.count;
 		}
 	}
 
@@ -41,23 +41,23 @@ public class DataInputBuffer extends DataInputStream {
 	}
 
 	public void reset(byte[] input, int length) {
-		buffer.reset(input, 0, length);
+		this.buffer.reset(input, 0, length);
 	}
 
 	public void reset(byte[] input, int start, int length) {
-		buffer.reset(input, start, length);
+		this.buffer.reset(input, start, length);
 	}
 
 	public byte[] getData() {
-		return buffer.getData();
+		return this.buffer.getData();
 	}
 
 	public int getPosition() {
-		return buffer.getPosition();
+		return this.buffer.getPosition();
 	}
 
 	public int getLength() {
-		return buffer.getLength();
+		return this.buffer.getLength();
 	}
 
 }

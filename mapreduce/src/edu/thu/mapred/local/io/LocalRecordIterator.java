@@ -8,8 +8,7 @@ import com.aliyun.odps.Column;
 import com.aliyun.odps.data.Record;
 
 import edu.thu.mapred.local.LocalRecord;
-import edu.thu.mapred.local.RawRecordComparator;
-import edu.thu.mapred.local.RawRecordIterator;
+import edu.thu.mapred.local.util.RecordComparator;
 
 public class LocalRecordIterator implements Iterator<Record> {
 	protected RawRecordIterator in;
@@ -18,34 +17,32 @@ public class LocalRecordIterator implements Iterator<Record> {
 	private LocalRecord value;
 	private boolean hasNext;
 	private boolean more;
-	private RawRecordComparator comparator;
+	private RecordComparator comparator;
 	private DataInputBuffer keyIn = new DataInputBuffer();
 	private DataInputBuffer valueIn = new DataInputBuffer();
 
-	public LocalRecordIterator(RawRecordIterator in, RawRecordComparator comparator,
-			Column[] keySchema, Column[] valueSchema) throws IOException {
+	public LocalRecordIterator(RawRecordIterator in, RecordComparator comparator, Column[] keySchema,
+			Column[] valueSchema) throws IOException {
 		this.in = in;
 		this.comparator = comparator;
 
-		nextKey = new LocalRecord(keySchema);
-		value = new LocalRecord(valueSchema);
+		this.nextKey = new LocalRecord(keySchema);
+		this.value = new LocalRecord(valueSchema);
 
 		readNextKey();
-		key = nextKey;
-		nextKey = new LocalRecord(keySchema);
-		hasNext = more;
+		this.key = this.nextKey;
+		this.nextKey = new LocalRecord(keySchema);
+		this.hasNext = this.more;
 	}
 
-	RawRecordIterator getRawIterator() {
-		return in;
-	}
-
+	@Override
 	public boolean hasNext() {
-		return hasNext;
+		return this.hasNext;
 	}
 
+	@Override
 	public Record next() {
-		if (!hasNext) {
+		if (!this.hasNext) {
 			throw new NoSuchElementException();
 		}
 		try {
@@ -54,50 +51,51 @@ public class LocalRecordIterator implements Iterator<Record> {
 		} catch (IOException ie) {
 			throw new RuntimeException(ie);
 		}
-		return value;
+		return this.value;
 	}
 
+	@Override
 	public void remove() {
-		throw new RuntimeException("not implemented");
+		throw new UnsupportedOperationException("unimplemented");
 	}
 
 	public void nextKey() throws IOException {
-		while (hasNext) {
+		while (this.hasNext) {
 			readNextKey();
 		}
 
-		LocalRecord tmpKey = key;
-		key = nextKey;
-		nextKey = tmpKey;
-		hasNext = more;
+		LocalRecord tmpKey = this.key;
+		this.key = this.nextKey;
+		this.nextKey = tmpKey;
+		this.hasNext = this.more;
 	}
 
 	public boolean more() {
-		return more;
+		return this.more;
 	}
 
 	public Record getKey() {
-		return key;
+		return this.key;
 	}
 
 	private void readNextKey() throws IOException {
-		more = in.next();
-		if (more) {
-			DataInputBuffer nextKeyBytes = in.getKey();
-			keyIn.reset(nextKeyBytes.getData(), nextKeyBytes.getPosition(), nextKeyBytes.getLength()
+		this.more = this.in.next();
+		if (this.more) {
+			DataInputBuffer nextKeyBytes = this.in.getKey();
+			this.keyIn.reset(nextKeyBytes.getData(), nextKeyBytes.getPosition(), nextKeyBytes.getLength()
 					- nextKeyBytes.getPosition());
-			nextKey.deserialize(keyIn);
-			hasNext = key != null && (comparator.compare(key, nextKey) == 0);
+			this.nextKey.deserialize(this.keyIn);
+			this.hasNext = this.key != null && (this.comparator.compare(this.key, this.nextKey) == 0);
 		} else {
-			hasNext = false;
+			this.hasNext = false;
 		}
 	}
 
 	private void readNextValue() throws IOException {
-		DataInputBuffer nextValueBytes = in.getValue();
-		valueIn.reset(nextValueBytes.getData(), nextValueBytes.getPosition(),
+		DataInputBuffer nextValueBytes = this.in.getValue();
+		this.valueIn.reset(nextValueBytes.getData(), nextValueBytes.getPosition(),
 				nextValueBytes.getLength() - nextValueBytes.getPosition());
-		value.deserialize(valueIn);
+		this.value.deserialize(this.valueIn);
 	}
 
 }

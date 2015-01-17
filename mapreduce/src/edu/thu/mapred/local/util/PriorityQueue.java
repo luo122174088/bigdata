@@ -1,55 +1,67 @@
 package edu.thu.mapred.local.util;
 
-public abstract class PriorityQueue<T> {
+import java.util.Comparator;
+
+public class PriorityQueue<T> {
 	private T[] heap;
 	private int size;
 	private int maxSize;
+	private Comparator<T> comparator;
 
-	protected abstract boolean lessThan(Object a, Object b);
+	public PriorityQueue(Comparator<T> comparator) {
+		this.comparator = comparator;
+	}
+
+	private boolean lessThan(T t1, T t2) {
+		return comparator.compare(t1, t2) < 0;
+	}
 
 	@SuppressWarnings("unchecked")
-	protected final void initialize(int maxSize) {
-		size = 0;
+	public void initialize(int maxSize) {
+		this.size = 0;
 		int heapSize = maxSize + 1;
-		heap = (T[]) new Object[heapSize];
+		this.heap = (T[]) new Object[heapSize];
 		this.maxSize = maxSize;
 	}
 
 	public final void put(T element) {
-		size++;
-		heap[size] = element;
+		this.size++;
+		this.heap[this.size] = element;
 		upHeap();
 	}
 
 	public boolean insert(T element) {
-		if (size < maxSize) {
+		if (this.size < this.maxSize) {
 			put(element);
 			return true;
-		} else if (size > 0 && !lessThan(element, top())) {
-			heap[1] = element;
+		} else if (this.size > 0 && !lessThan(element, top())) {
+			this.heap[1] = element;
 			adjustTop();
 			return true;
-		} else
+		} else {
 			return false;
+		}
 	}
 
 	public final T top() {
-		if (size > 0)
-			return heap[1];
-		else
+		if (this.size > 0) {
+			return this.heap[1];
+		} else {
 			return null;
+		}
 	}
 
 	public final T pop() {
-		if (size > 0) {
-			T result = heap[1]; // save first value
-			heap[1] = heap[size]; // move last to first
-			heap[size] = null; // permit GC of objects
-			size--;
-			downHeap(); // adjust heap
+		if (this.size > 0) {
+			T result = this.heap[1];
+			this.heap[1] = this.heap[this.size];
+			this.heap[this.size] = null;
+			this.size--;
+			downHeap();
 			return result;
-		} else
+		} else {
 			return null;
+		}
 	}
 
 	public final void adjustTop() {
@@ -57,44 +69,45 @@ public abstract class PriorityQueue<T> {
 	}
 
 	public final int size() {
-		return size;
+		return this.size;
 	}
 
 	public final void clear() {
-		for (int i = 0; i <= size; i++)
-			heap[i] = null;
-		size = 0;
+		for (int i = 0; i <= this.size; i++) {
+			this.heap[i] = null;
+		}
+		this.size = 0;
 	}
 
 	private final void upHeap() {
-		int i = size;
-		T node = heap[i];
+		int i = this.size;
+		T node = this.heap[i];
 		int j = i >>> 1;
-		while (j > 0 && lessThan(node, heap[j])) {
-			heap[i] = heap[j];
+		while (j > 0 && lessThan(node, this.heap[j])) {
+			this.heap[i] = this.heap[j];
 			i = j;
 			j = j >>> 1;
 		}
-		heap[i] = node;
+		this.heap[i] = node;
 	}
 
 	private final void downHeap() {
 		int i = 1;
-		T node = heap[i];
+		T node = this.heap[i];
 		int j = i << 1;
 		int k = j + 1;
-		if (k <= size && lessThan(heap[k], heap[j])) {
+		if (k <= this.size && lessThan(this.heap[k], this.heap[j])) {
 			j = k;
 		}
-		while (j <= size && lessThan(heap[j], node)) {
-			heap[i] = heap[j];
+		while (j <= this.size && lessThan(this.heap[j], node)) {
+			this.heap[i] = this.heap[j];
 			i = j;
 			j = i << 1;
 			k = j + 1;
-			if (k <= size && lessThan(heap[k], heap[j])) {
+			if (k <= this.size && lessThan(this.heap[k], this.heap[j])) {
 				j = k;
 			}
 		}
-		heap[i] = node;
+		this.heap[i] = node;
 	}
 }

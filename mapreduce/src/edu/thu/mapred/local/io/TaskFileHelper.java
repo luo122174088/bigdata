@@ -1,7 +1,9 @@
-package edu.thu.mapred.local;
+package edu.thu.mapred.local.io;
 
 import java.io.File;
 import java.io.IOException;
+
+import edu.thu.mapred.local.BaseDriver;
 
 public class TaskFileHelper {
 
@@ -12,13 +14,13 @@ public class TaskFileHelper {
 	}
 
 	public File getSpillFile(int numSpill) throws IOException {
-		String dir = driver.getTaskDir();
+		String dir = this.driver.getTaskDir();
 		File file = new File(dir, "spill" + numSpill);
 		return file;
 	}
 
 	public File getTempDir() {
-		File dir = new File(driver.getTaskDir(), "tmp");
+		File dir = new File(this.driver.getTaskDir(), "tmp");
 		if (!dir.exists()) {
 			dir.mkdir();
 		}
@@ -26,7 +28,7 @@ public class TaskFileHelper {
 	}
 
 	public File getOutputFile() {
-		String dir = driver.getTaskDir();
+		String dir = this.driver.getTaskDir();
 		File file = new File(dir, "file.out");
 		return file;
 	}

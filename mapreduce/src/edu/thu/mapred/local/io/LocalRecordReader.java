@@ -7,11 +7,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-import edu.thu.mapred.local.util.IOUtil;
-
 public class LocalRecordReader {
 	private static final int DEFAULT_BUFFER_SIZE = 512 * 1024;
-	private static final int MAX_VINT_SIZE = 9;
+	private static final int INT_SIZE = 4;
 
 	protected final InputStream in;
 	protected boolean eof = false;
@@ -26,7 +24,7 @@ public class LocalRecordReader {
 	private int readData(byte[] buf, int off, int len) throws IOException {
 		int bytesRead = 0;
 		while (bytesRead < len) {
-			int n = in.read(buf, off + bytesRead, len - bytesRead);
+			int n = this.in.read(buf, off + bytesRead, len - bytesRead);
 			if (n < 0) {
 				return bytesRead;
 			}
@@ -36,68 +34,68 @@ public class LocalRecordReader {
 	}
 
 	void readNextBlock(int minSize) throws IOException {
-		if (buffer == null) {
-			buffer = new byte[bufferSize];
-			dataIn.reset(buffer, 0, 0);
+		if (this.buffer == null) {
+			this.buffer = new byte[this.bufferSize];
+			this.dataIn.reset(this.buffer, 0, 0);
 		}
-		buffer = rejigData(buffer, (bufferSize < minSize) ? new byte[minSize << 1] : buffer);
-		bufferSize = buffer.length;
+		this.buffer = adjustData(this.buffer, (this.bufferSize < minSize) ? new byte[minSize << 1]
+				: this.buffer);
+		this.bufferSize = this.buffer.length;
 	}
 
-	private byte[] rejigData(byte[] source, byte[] destination) throws IOException {
-		// Copy remaining data into the destination array
-		int bytesRemaining = dataIn.getLength() - dataIn.getPosition();
+	private byte[] adjustData(byte[] source, byte[] destination) throws IOException {
+		int bytesRemaining = this.dataIn.getLength() - this.dataIn.getPosition();
 		if (bytesRemaining > 0) {
-			System.arraycopy(source, dataIn.getPosition(), destination, 0, bytesRemaining);
+			System.arraycopy(source, this.dataIn.getPosition(), destination, 0, bytesRemaining);
 		}
 
 		int n = readData(destination, bytesRemaining, (destination.length - bytesRemaining));
-		dataIn.reset(destination, 0, (bytesRemaining + n));
+		this.dataIn.reset(destination, 0, (bytesRemaining + n));
 
 		return destination;
 	}
 
 	public boolean next(DataInputBuffer key, DataInputBuffer value) throws IOException {
-		if (eof) {
+		if (this.eof) {
 			throw new EOFException();
 		}
 
-		if ((dataIn.getLength() - dataIn.getPosition()) < 2 * MAX_VINT_SIZE) {
-			readNextBlock(2 * MAX_VINT_SIZE);
+		if ((this.dataIn.getLength() - this.dataIn.getPosition()) < 2 * INT_SIZE) {
+			readNextBlock(2 * INT_SIZE);
 		}
 
-		// Read key and value lengths
-		int keyLength = IOUtil.readVInt(dataIn);
-		int valueLength = IOUtil.readVInt(dataIn);
-		int pos = dataIn.getPosition();
+		int keyLength = this.dataIn.readInt();
+		int valueLength = this.dataIn.readInt();
 
-		if (keyLength == 0 && valueLength == 0) {
-			eof = true;
+		if (keyLength == -1 && valueLength == -1) {
+			this.eof = true;
 			return false;
 		}
 
 		final int recordLength = keyLength + valueLength;
 
-		if ((dataIn.getLength() - pos) < recordLength) {
+		int pos = this.dataIn.getPosition();
+
+		if ((this.dataIn.getLength() - pos) < recordLength) {
 			readNextBlock(recordLength);
 		}
 
-		pos = dataIn.getPosition();
-		byte[] data = dataIn.getData();
+		pos = this.dataIn.getPosition();
+		byte[] data = this.dataIn.getData();
 		key.reset(data, pos, keyLength);
 		value.reset(data, (pos + keyLength), valueLength);
 
-		dataIn.skip(recordLength);
+		this.dataIn.skip(recordLength);
 
 		return true;
 	}
 
 	public void close() throws IOException {
 
-		in.close();
+		this.in.close();
 
-		dataIn = null;
-		buffer = null;
+		this.dataIn = null;
+		this.buffer = null;
 
 	}
 

@@ -11,6 +11,7 @@ import com.aliyun.odps.OdpsType;
 import com.aliyun.odps.data.Record;
 
 import edu.thu.mapred.local.util.IOUtil;
+import edu.thu.mapred.local.util.RecordComparator;
 
 public class LocalRecord implements Record {
 
@@ -29,31 +30,31 @@ public class LocalRecord implements Record {
 			throw new IllegalArgumentException();
 		}
 		this.columns = columns;
-		values = new Object[columns.length];
+		this.values = new Object[columns.length];
 		for (int i = 0; i < columns.length; i++) {
-			names.put(columns[i].getName(), i);
+			this.names.put(columns[i].getName(), i);
 		}
 
 	}
 
 	@Override
 	public int getColumnCount() {
-		return values.length;
+		return this.values.length;
 	}
 
 	@Override
 	public Column[] getColumns() {
-		return columns;
+		return this.columns;
 	}
 
 	@Override
 	public void set(int idx, Object value) {
-		values[idx] = value;
+		this.values[idx] = value;
 	}
 
 	@Override
 	public Object get(int idx) {
-		return values[idx];
+		return this.values[idx];
 	}
 
 	@Override
@@ -63,12 +64,12 @@ public class LocalRecord implements Record {
 
 	@Override
 	public Object get(String columnName) {
-		return values[getColumnIndex(columnName)];
+		return this.values[getColumnIndex(columnName)];
 	}
 
 	@Override
 	public void setBigint(int idx, Long value) {
-		values[idx] = value;
+		this.values[idx] = value;
 	}
 
 	@Override
@@ -88,7 +89,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setDouble(int idx, Double value) {
-		values[idx] = value;
+		this.values[idx] = value;
 	}
 
 	@Override
@@ -108,7 +109,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setBoolean(int idx, Boolean value) {
-		values[idx] = value;
+		this.values[idx] = value;
 	}
 
 	@Override
@@ -128,7 +129,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setDatetime(int idx, Date value) {
-		values[idx] = value;
+		this.values[idx] = value;
 	}
 
 	@Override
@@ -148,12 +149,12 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setString(int idx, String value) {
-		values[idx] = value;
+		this.values[idx] = value;
 	}
 
 	@Override
 	public String getString(int idx) {
-		return (String) values[idx];
+		return (String) this.values[idx];
 	}
 
 	@Override
@@ -188,7 +189,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void set(Object[] values) {
-		if (values == null || columns.length != values.length) {
+		if (values == null || this.columns.length != values.length) {
 			throw new IllegalArgumentException();
 		}
 		for (int i = 0; i < values.length; ++i) {
@@ -198,20 +199,20 @@ public class LocalRecord implements Record {
 
 	@Override
 	public Object[] toArray() {
-		return values;
+		return this.values;
 	}
 
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		for (Object value : values) {
+		for (Object value : this.values) {
 			sb.append(value);
 		}
 		return sb.toString();
 	}
 
 	private int getColumnIndex(String name) {
-		Integer idx = names.get(name);
+		Integer idx = this.names.get(name);
 		if (idx == null) {
 			throw new IllegalArgumentException("No such column:" + name);
 		}
@@ -219,14 +220,14 @@ public class LocalRecord implements Record {
 	}
 
 	public void serialize(DataOutput out) throws IOException {
-		for (int i = 0; i < values.length; i++) {
-			OdpsType type = columns[i].getType();
+		for (int i = 0; i < this.values.length; i++) {
+			OdpsType type = this.columns[i].getType();
 			switch (type) {
 			case BIGINT:
-				out.writeLong((Long) values[i]);
+				out.writeLong((Long) this.values[i]);
 				break;
 			case STRING:
-				String value = (String) values[i];
+				String value = (String) this.values[i];
 				byte[] bs = value.getBytes();
 				out.writeInt(bs.length);
 				out.write(bs);
@@ -239,17 +240,17 @@ public class LocalRecord implements Record {
 	}
 
 	public void deserialize(DataInput in) throws IOException {
-		for (int i = 0; i < values.length; i++) {
-			OdpsType type = columns[i].getType();
+		for (int i = 0; i < this.values.length; i++) {
+			OdpsType type = this.columns[i].getType();
 			switch (type) {
 			case BIGINT:
-				values[i] = in.readLong();
+				this.values[i] = in.readLong();
 				break;
 			case STRING:
 				int len = in.readInt();
 				byte[] bs = new byte[len];
 				in.readFully(bs);
-				values[i] = new String(bs);
+				this.values[i] = new String(bs);
 				break;
 			default:
 				throw new UnsupportedOperationException("Unimplemented");
@@ -261,7 +262,7 @@ public class LocalRecord implements Record {
 		this.values = values;
 	}
 
-	public static class DefaultRecordComparator implements RawRecordComparator {
+	public static class DefaultRecordComparator implements RecordComparator {
 		private Column[] schema;
 
 		public DefaultRecordComparator(Column[] schema) {
@@ -270,8 +271,8 @@ public class LocalRecord implements Record {
 
 		@Override
 		public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
-			for (int i = 0; i < schema.length; i++) {
-				switch (schema[i].getType()) {
+			for (int i = 0; i < this.schema.length; i++) {
+				switch (this.schema[i].getType()) {
 				case BIGINT:
 					long v1 = IOUtil.readLong(b1, s1);
 					long v2 = IOUtil.readLong(b2, s2);
@@ -309,8 +310,8 @@ public class LocalRecord implements Record {
 
 		@Override
 		public int compare(LocalRecord o1, LocalRecord o2) {
-			for (int i = 0; i < schema.length; i++) {
-				switch (schema[i].getType()) {
+			for (int i = 0; i < this.schema.length; i++) {
+				switch (this.schema[i].getType()) {
 				case BIGINT:
 					long v1 = o1.getBigint(i);
 					long v2 = o2.getBigint(i);

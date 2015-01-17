@@ -14,49 +14,58 @@ import com.aliyun.odps.mapred.TaskId;
 import edu.thu.mapred.local.BaseDriver;
 import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.LocalTaskContext;
-import edu.thu.mapred.local.RawRecordIterator;
 import edu.thu.mapred.local.io.CsvRecordWriter;
 import edu.thu.mapred.local.io.LocalRecordIterator;
+import edu.thu.mapred.local.io.RawRecordIterator;
 import edu.thu.mapred.local.io.RecordMerger;
 import edu.thu.mapred.local.io.RecordMerger.RecordSegment;
 
 public class ReduceDriver extends BaseDriver {
 
-	public ReduceDriver(LocalJobConf conf, TaskId id, List<File> mapFiles) {
-		super(conf, id, mapFiles);
+	public ReduceDriver(LocalJobConf conf, TaskId id, List<File> mapFiles) throws Exception {
+		super(conf, mapFiles);
+		this.init(id);
 	}
 
 	@Override
-	public void run() throws Exception {
-		List<RecordSegment> segments = new ArrayList<>(mapFiles.size());
-		for (File file : mapFiles) {
+	public void runInternal() throws Exception {
+		logger.info("Reduce task {} starts.", this.id);
+		long start = System.currentTimeMillis();
+
+		List<RecordSegment> segments = new ArrayList<>(this.mapFiles.size());
+		for (File file : this.mapFiles) {
 			segments.add(new RecordSegment(file, false));
 		}
-		RawRecordIterator in = RecordMerger.merge(segments, fileHelper.getTempDir(),
-				conf.getSortFactor(), conf.getMapOutputKeyComparator());
+		RawRecordIterator in = RecordMerger.merge(segments, this.fileHelper.getTempDir(),
+				this.conf.getSortFactor(), this.conf.getMapOutputKeyComparator());
 
-		Class<? extends Reducer> reducerClass = conf.getReducerClass();
+		Class<? extends Reducer> reducerClass = this.conf.getReducerClass();
 		Reducer reducer = reducerClass.newInstance();
 
-		File outputFile = new File(conf.getReduceDir(), id.toString());
+		File outputFile = new File(getTaskDir(), "part-" + this.id.getInstId());
 		CsvRecordWriter writer = new CsvRecordWriter(outputFile);
-		TaskContext context = new ReduceTaskContext(conf, id, writer);
-		LocalRecordIterator iterator = new LocalRecordIterator(in, conf.getMapOutputKeyComparator(),
-				conf.getMapOutputKeySchema(), conf.getMapOutputValueSchema());
+		TaskContext context = new ReduceTaskContext(this.conf, this.id, writer);
+		LocalRecordIterator iterator = new LocalRecordIterator(in,
+				this.conf.getMapOutputKeyComparator(), this.conf.getMapOutputKeySchema(),
+				this.conf.getMapOutputValueSchema());
 
 		reducer.setup(context);
 		try {
 			while (iterator.more()) {
-				while (iterator.more()) {
-					reducer.reduce(iterator.getKey(), iterator, context);
-					iterator.nextKey();
-				}
+				reducer.reduce(iterator.getKey(), iterator, context);
+				iterator.nextKey();
 			}
 		} finally {
 			writer.close();
 			reducer.cleanup(context);
+			long end = System.currentTimeMillis();
+			logger.info("Reduce task {} ends in {}ms", this.id, (end - start));
 		}
+	}
 
+	@Override
+	public String getTaskDir() {
+		return this.conf.getReduceDir() + this.id.toString() + "/";
 	}
 
 	class ReduceTaskContext extends LocalTaskContext implements TaskContext {
@@ -70,7 +79,7 @@ public class ReduceDriver extends BaseDriver {
 
 		@Override
 		public void write(Record record) throws IOException {
-			writer.write(record);
+			this.writer.write(record);
 		}
 
 		@Override
