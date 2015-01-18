@@ -224,12 +224,12 @@ public class LocalRecord implements Record {
 			OdpsType type = this.columns[i].getType();
 			switch (type) {
 			case BIGINT:
-				out.writeLong((Long) this.values[i]);
+				IOUtil.writeVLong(out, (Long) this.values[i]);
 				break;
 			case STRING:
 				String value = (String) this.values[i];
 				byte[] bs = value.getBytes();
-				out.writeInt(bs.length);
+				IOUtil.writeVInt(out, bs.length);
 				out.write(bs);
 				break;
 			default:
@@ -244,10 +244,10 @@ public class LocalRecord implements Record {
 			OdpsType type = this.columns[i].getType();
 			switch (type) {
 			case BIGINT:
-				this.values[i] = in.readLong();
+				this.values[i] = IOUtil.readVLong(in);
 				break;
 			case STRING:
-				int len = in.readInt();
+				int len = IOUtil.readVInt(in);
 				byte[] bs = new byte[len];
 				in.readFully(bs);
 				this.values[i] = new String(bs);
@@ -274,31 +274,36 @@ public class LocalRecord implements Record {
 			for (int i = 0; i < this.schema.length; i++) {
 				switch (this.schema[i].getType()) {
 				case BIGINT:
-					long v1 = IOUtil.readLong(b1, s1);
-					long v2 = IOUtil.readLong(b2, s2);
+					long v1 = IOUtil.readVLong(b1, s1);
+					long v2 = IOUtil.readVLong(b2, s2);
 					if (v1 < v2) {
 						return -1;
 					} else if (v1 > v2) {
 						return 1;
 					} else {
-						s1 += 8;
-						s2 += 8;
+						int len1 = IOUtil.getVLongSize(v1);
+						int len2 = IOUtil.getVLongSize(v2);
 
-						l1 -= 8;
-						l2 -= 8;
+						s1 += len1;
+						s2 += len2;
+						l1 -= len1;
+						l2 -= len2;
 					}
 					break;
 				case STRING:
-					int n1 = IOUtil.readInt(b1, s1);
-					int n2 = IOUtil.readInt(b2, s2);
-					int result = IOUtil.compareBytes(b1, s1 + 4, n1, b2, s2 + 4, n2);
+					int n1 = IOUtil.readVInt(b1, s1);
+					int n2 = IOUtil.readVInt(b2, s2);
+					int len1 = IOUtil.getVLongSize(n1);
+					int len2 = IOUtil.getVLongSize(n2);
+					int result = IOUtil.compareBytes(b1, s1 + len1, n1, b2, s2 + len2, n2);
 					if (result != 0) {
 						return result;
 					} else {
-						s1 = s1 + 4 + n1;
-						s2 = s2 + 4 + n1;
-						l1 = l1 - 4 - n1;
-						l2 = l2 - 4 - n2;
+
+						s1 = s1 + len1 + n1;
+						s2 = s2 + len2 + n1;
+						l1 = l1 - len1 - n1;
+						l2 = l2 - len2 - n2;
 					}
 					break;
 				default:

@@ -1,29 +1,29 @@
-package edu.thu.mapred.local.io;
+package edu.thu.mapred.local.util;
 
 public class IndexSorter {
 
-	public static interface Sortable {
-		int compare(int i, int j);
+	public static interface IndexSortable {
+		int compareIndex(int i, int j);
 
-		void swap(int i, int j);
+		void swapIndex(int i, int j);
 	}
 
-	private static void fix(Sortable s, int l, int r) {
-		if (s.compare(l, r) > 0) {
-			s.swap(l, r);
+	private static void fix(IndexSortable s, int l, int r) {
+		if (s.compareIndex(l, r) > 0) {
+			s.swapIndex(l, r);
 		}
 	}
 
-	public void sort(final Sortable s, int l, int r) {
+	public static void sort(final IndexSortable s, int l, int r) {
 		sortImpl(s, l, r);
 	}
 
-	private static void sortImpl(final Sortable s, int l, int r) {
+	private static void sortImpl(final IndexSortable s, int l, int r) {
 		while (true) {
 			if (r - l < 13) {
 				for (int i = l; i < r; ++i) {
-					for (int j = i; j > l && s.compare(j - 1, j) > 0; --j) {
-						s.swap(j, j - 1);
+					for (int j = i; j > l && s.compareIndex(j - 1, j) > 0; --j) {
+						s.swapIndex(j, j - 1);
 					}
 				}
 				return;
@@ -38,33 +38,33 @@ public class IndexSorter {
 			int cr;
 			while (true) {
 				while (++i < j) {
-					if ((cr = s.compare(i, l)) > 0) {
+					if ((cr = s.compareIndex(i, l)) > 0) {
 						break;
 					}
 					if (0 == cr && ++ll != i) {
-						s.swap(ll, i);
+						s.swapIndex(ll, i);
 					}
 				}
 				while (--j > i) {
-					if ((cr = s.compare(l, j)) > 0) {
+					if ((cr = s.compareIndex(l, j)) > 0) {
 						break;
 					}
 					if (0 == cr && --rr != j) {
-						s.swap(rr, j);
+						s.swapIndex(rr, j);
 					}
 				}
 				if (i < j) {
-					s.swap(i, j);
+					s.swapIndex(i, j);
 				} else {
 					break;
 				}
 			}
 			j = i;
 			while (ll >= l) {
-				s.swap(ll--, --i);
+				s.swapIndex(ll--, --i);
 			}
 			while (rr < r) {
-				s.swap(rr++, j++);
+				s.swapIndex(rr++, j++);
 			}
 			if (i - l < r - j) {
 				sortImpl(s, l, i);

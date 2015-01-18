@@ -7,11 +7,16 @@ import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.util.PriorityQueue;
 import edu.thu.mapred.local.util.RecordComparator;
 
 public class RecordMerger implements RawRecordIterator {
+
+	private static Logger logger = LoggerFactory.getLogger(RecordMerger.class);
 
 	public static RawRecordIterator merge(List<RecordSegment> segments, File tmpDir, int factor,
 			RecordComparator comparator) throws IOException {
@@ -33,6 +38,8 @@ public class RecordMerger implements RawRecordIterator {
 
 	private DataInputBuffer key;
 	private DataInputBuffer value;
+	private RecordSegment min;
+
 	private Comparator<RecordSegment> segmentComparator = new Comparator<RecordSegment>() {
 		@Override
 		public int compare(RecordSegment o1, RecordSegment o2) {
@@ -90,67 +97,79 @@ public class RecordMerger implements RawRecordIterator {
 		return this.value;
 	}
 
-	@Override
 	public boolean next() throws IOException {
 		if (queue.size() == 0) {
 			return false;
 		}
-
-		RecordSegment segment = queue.top();
-		this.key = segment.getKey();
-		this.value = segment.getValue();
-
-		boolean hasNext = segment.next();
-		if (hasNext) {
-			queue.adjustTop();
-		} else {
-			queue.pop();
-			segment.close();
+		if (min != null) {
+			boolean hasNext = min.next();
+			if (hasNext) {
+				queue.adjustTop();
+			} else {
+				queue.pop();
+				min.close();
+				if (queue.size() == 0) {
+					min = null;
+					return false;
+				}
+			}
 		}
+
+		min = queue.top();
+		key = min.getKey();
+		value = min.getValue();
 
 		return true;
 	}
 
 	RawRecordIterator merge(File tmpDir, int factor) throws IOException {
 		int numSegments = this.segments.size();
+		logger.info("Merging {} segments.", numSegments);
+		long start = System.currentTimeMillis();
 		int origFactor = factor;
 		int round = 1;
-		while (true) {
-			factor = getRoundFactor(factor, round, numSegments);
-			queue.initialize(factor);
 
-			int num = 0;
-			RecordSegment segment = null;
-			while ((segment = getRecordSegment()) != null && num < factor) {
-				segment.init();
-				boolean hasNext = segment.next();
-				if (hasNext) {
-					queue.put(segment);
-					num++;
-				} else {
-					segment.close();
-					numSegments--;
+		try {
+			while (true) {
+				factor = getRoundFactor(factor, round, numSegments);
+				queue.initialize(factor);
+
+				int num = 0;
+				RecordSegment segment = null;
+				while ((segment = getRecordSegment()) != null && num < factor) {
+					segment.init();
+					boolean hasNext = segment.next();
+					if (hasNext) {
+						queue.put(segment);
+						num++;
+					} else {
+						segment.close();
+						numSegments--;
+						logger.warn("Skipped invalid segment: {}", segment.file.getName());
+					}
 				}
+
+				if (numSegments <= factor) {
+					return this;
+				} else {
+					File outputFile = new File(tmpDir, "intermediate." + round);
+
+					LocalRecordWriter writer = new LocalRecordWriter(this.conf, outputFile);
+					writeFile(this, writer);
+					writer.close();
+
+					this.close();
+					RecordSegment tempSegment = new RecordSegment(outputFile, false);
+					this.segments.add(tempSegment);
+					numSegments = this.segments.size();
+					Collections.sort(this.segments, this.segmentComparator);
+					round++;
+				}
+				factor = origFactor;
 			}
-
-			if (numSegments <= factor) {
-				return this;
-			} else {
-				File outputFile = new File(tmpDir, "intermediate." + round);
-
-				LocalRecordWriter writer = new LocalRecordWriter(this.conf, outputFile);
-				writeFile(this, writer);
-				writer.close();
-
-				this.close();
-
-				RecordSegment tempSegment = new RecordSegment(outputFile, false);
-				this.segments.add(tempSegment);
-				numSegments = this.segments.size();
-				Collections.sort(this.segments, this.segmentComparator);
-				round++;
-			}
-			factor = origFactor;
+		} finally {
+			long end = System.currentTimeMillis();
+			logger.info("Merge finishes in {} rounds, {}ms.", round, (end - start));
 		}
 
 	}

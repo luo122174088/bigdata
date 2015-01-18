@@ -18,13 +18,13 @@ import edu.thu.mapred.local.io.TaskFileHelper;
 
 public class MapDriver extends BaseDriver {
 
-	protected InputSplit split;
+	protected File inputFile;
 	protected MapOutputCollector collector;
 
-	protected List<InputSplit> inputFiles;
+	protected List<File> inputFiles;
 	protected List<TaskId> mapIds;
 
-	public MapDriver(LocalJobConf conf, List<File> mapFiles, List<InputSplit> inputFiles,
+	public MapDriver(LocalJobConf conf, List<File> mapFiles, List<File> inputFiles,
 			List<TaskId> mapIds) throws Exception {
 		super(conf, mapFiles);
 		this.collector = new MapOutputCollector(conf, new TaskFileHelper(this), mapFiles);
@@ -32,16 +32,17 @@ public class MapDriver extends BaseDriver {
 		this.mapIds = mapIds;
 	}
 
-	public void init(TaskId id, InputSplit split) throws Exception {
+	public void init(TaskId id, File split) throws Exception {
 		super.init(id);
 		this.collector.init(id);
-		this.split = split;
+		this.inputFile = split;
 	};
 
 	@Override
 	public void runInternal() throws Exception {
 
 		while (true) {
+			// consume a map file
 			synchronized (this.inputFiles) {
 				if (this.inputFiles.size() == 0) {
 					return;
@@ -54,7 +55,7 @@ public class MapDriver extends BaseDriver {
 			Class<? extends Mapper> mapperClass = this.conf.getMapperClass();
 			Mapper mapper = mapperClass.newInstance();
 
-			CsvRecordReader reader = new CsvRecordReader(this.split.file);
+			CsvRecordReader reader = new CsvRecordReader(this.inputFile);
 			MapTaskContext context = new MapTaskContext(this.conf, this.id, this.collector);
 			mapper.setup(context);
 

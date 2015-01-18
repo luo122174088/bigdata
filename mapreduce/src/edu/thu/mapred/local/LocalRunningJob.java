@@ -18,7 +18,6 @@ import com.aliyun.odps.mapred.JobStatus;
 import com.aliyun.odps.mapred.RunningJob;
 import com.aliyun.odps.mapred.TaskId;
 
-import edu.thu.mapred.local.map.InputSplit;
 import edu.thu.mapred.local.map.MapDriver;
 import edu.thu.mapred.local.red.ReduceDriver;
 
@@ -30,7 +29,7 @@ public class LocalRunningJob implements RunningJob {
 
 	private String jobId;
 
-	private List<InputSplit> inputFiles = new LinkedList<InputSplit>();
+	private List<File> inputFiles = new LinkedList<File>();
 	private List<TaskId> mapIds = new LinkedList<TaskId>();
 
 	public LocalRunningJob(LocalJobConf conf) {
@@ -71,14 +70,17 @@ public class LocalRunningJob implements RunningJob {
 				if (!f.getName().endsWith(".csv")) {
 					continue;
 				}
-				InputSplit split = new InputSplit(f);
 				TaskId mapId = new TaskId("M1", id++);
-				this.inputFiles.add(split);
+				this.inputFiles.add(f);
 				this.mapIds.add(mapId);
+			}
+			if (this.inputFiles.size() == 0) {
+				logger.error("No input found.");
+				return;
 			}
 			int threads = Math.min(this.inputFiles.size(), this.conf.getMapThreads());
 			ExecutorService mapService = Executors.newFixedThreadPool(threads);
-			for (int i = 0; i < this.conf.getMapThreads(); i++) {
+			for (int i = 0; i < threads; i++) {
 				MapDriver driver = new MapDriver(this.conf, mapFiles, this.inputFiles, this.mapIds);
 				mapService.submit(driver);
 			}
@@ -89,6 +91,7 @@ public class LocalRunningJob implements RunningJob {
 				mapService.shutdownNow();
 				throw ie;
 			}
+
 			Long mapEnd = System.currentTimeMillis();
 			logger.info("Map phase ends in {}ms.", (mapEnd - start));
 			logger.info("Reduce phase starts.");
@@ -99,7 +102,7 @@ public class LocalRunningJob implements RunningJob {
 			Long reduceEnd = System.currentTimeMillis();
 			logger.info("Reduce phase ends in {}ms", (reduceEnd - mapEnd));
 		} catch (Exception e) {
-			logger.error("Job faisl.", e);
+			logger.error("Job fails.", e);
 		} finally {
 			cleanUp();
 			end = System.currentTimeMillis();

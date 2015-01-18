@@ -119,7 +119,7 @@ public class WordCount {
 
 		JobConf job = new JobConf();
 
-		job.set("input.path", "10M-5");
+		job.set("input.path", "data");
 
 		job.setMapperClass(TokenizerMapper.class);
 		job.setCombinerClass(SumCombiner.class);

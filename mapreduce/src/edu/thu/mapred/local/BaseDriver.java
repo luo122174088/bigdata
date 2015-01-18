@@ -50,6 +50,7 @@ public abstract class BaseDriver implements Runnable {
 		try {
 			runInternal();
 		} catch (Exception e) {
+			logger.error("Task {} fails.", this.id, e);
 			throw new RuntimeException(e);
 		}
 	}

@@ -10,6 +10,7 @@ import com.aliyun.odps.data.Record;
 
 import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.LocalRecord;
+import edu.thu.mapred.local.util.IOUtil;
 
 public class LocalRecordWriter {
 	DataOutputStream out;
@@ -20,8 +21,8 @@ public class LocalRecordWriter {
 	}
 
 	public void close() throws IOException {
-		this.out.writeInt(-1);
-		this.out.writeInt(-1);
+		IOUtil.writeVInt(out, -1);
+		IOUtil.writeVInt(out, -1);
 
 		this.out.flush();
 		this.out.close();
@@ -34,8 +35,8 @@ public class LocalRecordWriter {
 		((LocalRecord) value).serialize(this.buffer);
 		int valueLength = this.buffer.getLength() - keyLength;
 
-		this.out.writeInt(keyLength);
-		this.out.writeInt(valueLength);
+		IOUtil.writeVInt(out, keyLength);
+		IOUtil.writeVInt(out, valueLength);
 
 		this.out.write(this.buffer.getData(), 0, this.buffer.getLength()); // data
 
@@ -47,8 +48,8 @@ public class LocalRecordWriter {
 
 		int valueLength = value.getLength() - value.getPosition();
 
-		this.out.writeInt(keyLength);
-		this.out.writeInt(valueLength);
+		IOUtil.writeVInt(out, keyLength);
+		IOUtil.writeVInt(out, valueLength);
 
 		this.out.write(key.getData(), key.getPosition(), keyLength);
 		this.out.write(value.getData(), value.getPosition(), valueLength);

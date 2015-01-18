@@ -7,9 +7,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import edu.thu.mapred.local.util.IOUtil;
+
 public class LocalRecordReader {
 	private static final int DEFAULT_BUFFER_SIZE = 512 * 1024;
-	private static final int INT_SIZE = 4;
+	private static final int MAX_HEADER_SIZE = 2 * 9;
 
 	protected final InputStream in;
 	protected boolean eof = false;
@@ -60,12 +62,12 @@ public class LocalRecordReader {
 			throw new EOFException();
 		}
 
-		if ((this.dataIn.getLength() - this.dataIn.getPosition()) < 2 * INT_SIZE) {
-			readNextBlock(2 * INT_SIZE);
+		if ((this.dataIn.getLength() - this.dataIn.getPosition()) < MAX_HEADER_SIZE) {
+			readNextBlock(MAX_HEADER_SIZE);
 		}
 
-		int keyLength = this.dataIn.readInt();
-		int valueLength = this.dataIn.readInt();
+		int keyLength = IOUtil.readVInt(this.dataIn);
+		int valueLength = IOUtil.readVInt(this.dataIn);
 
 		if (keyLength == -1 && valueLength == -1) {
 			this.eof = true;

@@ -7,6 +7,7 @@ import com.aliyun.odps.Column;
 import com.aliyun.odps.data.Record;
 import com.aliyun.odps.mapred.Reducer;
 import com.aliyun.odps.mapred.Reducer.TaskContext;
+import com.aliyun.odps.mapred.ReducerBase;
 import com.aliyun.odps.mapred.TaskId;
 
 import edu.thu.mapred.local.BaseDriver;
@@ -39,7 +40,9 @@ public class CombineDriver extends BaseDriver {
 	@Override
 	public void runInternal() throws Exception {
 		Class<? extends Reducer> combinerClass = this.conf.getCombinerClass();
-
+		if (combinerClass == null) {
+			combinerClass = DummyCombiner.class;
+		}
 		Reducer combiner = combinerClass.newInstance();
 		TaskContext context = new CombineTaskContext();
 		combiner.setup(context);
@@ -52,6 +55,15 @@ public class CombineDriver extends BaseDriver {
 			}
 		} finally {
 			combiner.cleanup(context);
+		}
+	}
+
+	private static class DummyCombiner extends ReducerBase {
+		@Override
+		public void reduce(Record key, Iterator<Record> values, TaskContext context) throws IOException {
+			while (values.hasNext()) {
+				context.write(key, values.next());
+			}
 		}
 	}
 

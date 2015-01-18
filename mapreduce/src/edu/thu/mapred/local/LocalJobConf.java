@@ -63,4 +63,13 @@ public class LocalJobConf extends JobConf {
 	public RecordComparator getMapOutputKeyComparator() {
 		return new LocalRecord.DefaultRecordComparator(getMapOutputKeySchema());
 	}
+
+	public float getSpiller() {
+		return getFloat("io.spiller", 0.8f);
+	}
+
+	public int getSortMB() {
+		return getInt("io.sort.mb", 100);
+	}
+
 }
