@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import sun.awt.windows.ThemeReader;
+
 import com.aliyun.odps.counter.Counters;
 import com.aliyun.odps.mapred.JobStatus;
 import com.aliyun.odps.mapred.RunningJob;
@@ -31,6 +33,13 @@ public class LocalRunningJob implements RunningJob {
 
 	private List<File> inputFiles = new LinkedList<File>();
 	private List<TaskId> mapIds = new LinkedList<TaskId>();
+
+	private List<File> mapFiles;
+
+	private long jobStart;
+	private long jobEnd;
+
+	private long mapEnd;
 
 	public LocalRunningJob(LocalJobConf conf) {
 		this.conf = conf;
@@ -52,33 +61,47 @@ public class LocalRunningJob implements RunningJob {
 
 	@Override
 	public void waitForCompletion() {
-
-		String inputPath = this.conf.getMapInputPath();
-		long start = System.currentTimeMillis();
-		long end = 0;
-		List<File> mapFiles = Collections.synchronizedList(new ArrayList<File>());
-		File dir = new File(inputPath);
+		jobStart = System.currentTimeMillis();
 		try {
-			logger.info("Map phase starts.");
-			File[] files = dir.listFiles();
-			if (files == null || files.length == 0) {
-				logger.error("No input found.");
-				return;
+			map();
+			reduce();
+
+		} catch (Exception e) {
+			logger.error("Job fails.", e);
+		} finally {
+			cleanUp();
+			jobEnd = System.currentTimeMillis();
+			logger.info("Job ends in {}ms", (jobEnd - jobStart));
+		}
+	}
+
+	private void map() throws Exception {
+		logger.info("Map phase starts.");
+		String inputPath = this.conf.getMapInputPath();
+		mapFiles = Collections.synchronizedList(new ArrayList<File>());
+		File dir = new File(inputPath);
+		File[] files = dir.listFiles();
+		if (files == null || files.length == 0) {
+			logger.error("No input found.");
+			return;
+		}
+		int id = 1;
+		for (File f : files) {
+			if (!f.getName().endsWith(".csv")) {
+				continue;
 			}
-			int id = 1;
-			for (File f : files) {
-				if (!f.getName().endsWith(".csv")) {
-					continue;
-				}
-				TaskId mapId = new TaskId("M1", id++);
-				this.inputFiles.add(f);
-				this.mapIds.add(mapId);
-			}
-			if (this.inputFiles.size() == 0) {
-				logger.error("No input found.");
-				return;
-			}
-			int threads = Math.min(this.inputFiles.size(), this.conf.getMapThreads());
+			TaskId mapId = new TaskId("M1", id++);
+			this.inputFiles.add(f);
+			this.mapIds.add(mapId);
+		}
+		if (this.inputFiles.size() == 0) {
+			logger.error("No input found.");
+			return;
+		}
+		logger.info("Map phase processing {} input files.", this.inputFiles.size());
+		int threads = Math.min(this.inputFiles.size(), this.conf.getMapThreads());
+		if (threads > 1) {
+			logger.info("Map phase runs in {} threads.", threads);
 			ExecutorService mapService = Executors.newFixedThreadPool(threads);
 			for (int i = 0; i < threads; i++) {
 				MapDriver driver = new MapDriver(this.conf, mapFiles, this.inputFiles, this.mapIds);
@@ -91,24 +114,22 @@ public class LocalRunningJob implements RunningJob {
 				mapService.shutdownNow();
 				throw ie;
 			}
-
-			Long mapEnd = System.currentTimeMillis();
-			logger.info("Map phase ends in {}ms.", (mapEnd - start));
-			logger.info("Reduce phase starts.");
-			id = 1;
-			TaskId redId = new TaskId("R1", id++);
-			ReduceDriver reduceDriver = new ReduceDriver(this.conf, redId, mapFiles);
-			reduceDriver.run();
-			Long reduceEnd = System.currentTimeMillis();
-			logger.info("Reduce phase ends in {}ms", (reduceEnd - mapEnd));
-		} catch (Exception e) {
-			logger.error("Job fails.", e);
-		} finally {
-			cleanUp();
-			end = System.currentTimeMillis();
-			logger.info("Job ends in {}ms", (end - start));
+		} else {
+			logger.info("Map phase fall back to single thread.");
+			MapDriver driver = new MapDriver(this.conf, mapFiles, this.inputFiles, this.mapIds);
+			driver.run();
 		}
+		mapEnd = System.currentTimeMillis();
+		logger.info("Map phase ends in {}ms.", (mapEnd - jobStart));
+	}
 
+	private void reduce() throws Exception {
+		logger.info("Reduce phase starts.");
+		TaskId redId = new TaskId("R1", 1);
+		ReduceDriver reduceDriver = new ReduceDriver(this.conf, redId, mapFiles);
+		reduceDriver.run();
+		Long reduceEnd = System.currentTimeMillis();
+		logger.info("Reduce phase ends in {}ms", (reduceEnd - mapEnd));
 	}
 
 	private void cleanUp() {

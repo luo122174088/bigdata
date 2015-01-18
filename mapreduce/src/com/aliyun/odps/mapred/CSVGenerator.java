@@ -3,7 +3,6 @@ package com.aliyun.odps.mapred;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 import com.csvreader.CsvWriter;
@@ -15,8 +14,6 @@ import com.csvreader.CsvWriter;
  * 
  */
 public class CSVGenerator {
-
-	private static Random random = new Random(System.currentTimeMillis());
 
 	private static int Column_Len = 5;
 

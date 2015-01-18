@@ -8,7 +8,6 @@ import com.aliyun.odps.data.Record;
 import com.aliyun.odps.mapred.Reducer;
 import com.aliyun.odps.mapred.Reducer.TaskContext;
 import com.aliyun.odps.mapred.ReducerBase;
-import com.aliyun.odps.mapred.TaskId;
 
 import edu.thu.mapred.local.BaseDriver;
 import edu.thu.mapred.local.LocalJobConf;
@@ -27,14 +26,17 @@ public class CombineDriver extends BaseDriver {
 
 	private RecordComparator comparator;
 
-	public CombineDriver(LocalJobConf conf, TaskId id, LocalRecordWriter writer,
-			RawRecordIterator iterator) {
+	public CombineDriver(LocalJobConf conf) {
 		super(conf);
-		this.writer = writer;
-		this.in = iterator;
 		this.keySchema = conf.getMapOutputKeySchema();
 		this.valueSchema = conf.getMapOutputValueSchema();
 		this.comparator = conf.getMapOutputKeyComparator();
+	}
+
+	public void init(RawRecordIterator in, LocalRecordWriter writer) throws IOException {
+		super.init(null);
+		this.in = in;
+		this.writer = writer;
 	}
 
 	@Override

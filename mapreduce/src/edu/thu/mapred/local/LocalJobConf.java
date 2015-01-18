@@ -9,6 +9,18 @@ import edu.thu.mapred.local.util.RecordComparator;
 
 public class LocalJobConf extends JobConf {
 
+	private static final String IO_MERGE_COMBINE = "io.merge.combine";
+
+	private static final String IO_SORT_PER = "io.sort.per";
+
+	private static final String IO_SORT_MB = "io.sort.mb";
+
+	private static final String IO_SPILLER = "io.spiller";
+
+	private static final String IO_SORT_FACTOR = "io.sort.factor";
+
+	private static final String MAP_THREADS = "map.threads";
+
 	private static final String LOCAL_JOB_DIR = "local.job.dir";
 
 	private static final String OUTPUT_SCHEMA = "output.schema";
@@ -52,12 +64,21 @@ public class LocalJobConf extends JobConf {
 		return SchemaUtils.fromString(schema);
 	}
 
+	@Override
+	public String get(String name) {
+		String value = super.get(name);
+		if (value == null) {
+			value = System.getProperty(name);
+		}
+		return value;
+	}
+
 	public int getMapThreads() {
-		return 2;
+		return getInt(LocalJobConf.MAP_THREADS, 2);
 	}
 
 	public int getSortFactor() {
-		return 10;
+		return getInt(LocalJobConf.IO_SORT_FACTOR, 10);
 	}
 
 	public RecordComparator getMapOutputKeyComparator() {
@@ -65,15 +86,19 @@ public class LocalJobConf extends JobConf {
 	}
 
 	public float getSpiller() {
-		return getFloat("io.spiller", 0.8f);
+		return getFloat(LocalJobConf.IO_SPILLER, 0.8f);
 	}
 
 	public int getSortMB() {
-		return getInt("io.sort.mb", 100);
+		return getInt(LocalJobConf.IO_SORT_MB, 100);
 	}
 
 	public float getIndexPer() {
-		return getFloat("io.sort.per", 0.1f);
+		return getFloat(LocalJobConf.IO_SORT_PER, 0.1f);
+	}
+
+	public boolean getMergeCombine() {
+		return getBoolean(LocalJobConf.IO_MERGE_COMBINE, true);
 	}
 
 }

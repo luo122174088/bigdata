@@ -118,9 +118,6 @@ public class WordCount {
 		}
 
 		JobConf job = new JobConf();
-
-		job.set("input.path", "data");
-
 		job.setMapperClass(TokenizerMapper.class);
 		job.setCombinerClass(SumCombiner.class);
 		job.setReducerClass(SumReducer.class);

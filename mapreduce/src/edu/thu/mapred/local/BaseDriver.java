@@ -1,6 +1,7 @@
 package edu.thu.mapred.local;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -35,10 +36,15 @@ public abstract class BaseDriver implements Runnable {
 	 * @param id
 	 * @throws Exception
 	 */
-	public void init(TaskId id) throws Exception {
+	protected void init(TaskId id) throws IOException {
 		this.id = id;
-		File dir = new File(getTaskDir());
-		dir.mkdir();
+		if (id != null) {
+			File dir = new File(getTaskDir());
+			if (!dir.exists()) {
+				dir.mkdir();
+			}
+		}
+
 	}
 
 	public abstract String getTaskDir();

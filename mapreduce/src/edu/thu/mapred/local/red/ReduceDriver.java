@@ -36,7 +36,7 @@ public class ReduceDriver extends BaseDriver {
 		for (File file : this.mapFiles) {
 			segments.add(new RecordSegment(file, false));
 		}
-		RawRecordIterator in = RecordMerger.merge(segments, this.fileHelper.getTempDir(),
+		RawRecordIterator in = RecordMerger.merge(conf, segments, this.fileHelper.getTempDir(),
 				this.conf.getSortFactor(), this.conf.getMapOutputKeyComparator());
 
 		Class<? extends Reducer> reducerClass = this.conf.getReducerClass();

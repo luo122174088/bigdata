@@ -2,16 +2,16 @@ package edu.thu.mapred.local.io;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.aliyun.odps.mapred.TaskId;
+
 import edu.thu.mapred.local.LocalJobConf;
+import edu.thu.mapred.local.map.CombineDriver;
 import edu.thu.mapred.local.util.PriorityQueue;
 import edu.thu.mapred.local.util.RecordComparator;
 
@@ -19,16 +19,9 @@ public class RecordMerger implements RawRecordIterator {
 
 	private static Logger logger = LoggerFactory.getLogger(RecordMerger.class);
 
-	public static RawRecordIterator merge(List<RecordSegment> segments, File tmpDir, int factor,
-			RecordComparator comparator) throws IOException {
-		return new RecordMerger(segments, true, comparator).merge(tmpDir, factor);
-	}
-
-	public static <K extends Object, V extends Object> void writeFile(RawRecordIterator iterator,
-			LocalRecordWriter writer) throws IOException {
-		while (iterator.next()) {
-			writer.append(iterator.getKey(), iterator.getValue());
-		}
+	public static RawRecordIterator merge(LocalJobConf conf, List<RecordSegment> segments,
+			File tmpDir, int factor, RecordComparator comparator) throws IOException {
+		return new RecordMerger(conf, segments, true, comparator).merge(tmpDir, factor);
 	}
 
 	private LocalJobConf conf;
@@ -40,6 +33,7 @@ public class RecordMerger implements RawRecordIterator {
 	private DataInputBuffer key;
 	private DataInputBuffer value;
 	private RecordSegment min;
+	private CombineDriver driver;
 
 	private Comparator<RecordSegment> segmentComparator = new Comparator<RecordSegment>() {
 		@Override
@@ -67,14 +61,17 @@ public class RecordMerger implements RawRecordIterator {
 
 	private PriorityQueue<RecordSegment> queue = new PriorityQueue<>(recordComparator);
 
-	public RecordMerger(List<RecordSegment> segments, boolean deleteInputs,
+	public RecordMerger(LocalJobConf conf, List<RecordSegment> segments, boolean deleteInputs,
 			RecordComparator comparator) throws IOException {
+		this.conf = conf;
 		this.comparator = comparator;
 		this.segments = new PriorityQueue<>(segmentComparator);
 		this.segments.initialize(segments.size());
 		for (RecordSegment seg : segments) {
 			this.segments.put(seg);
 		}
+
+		this.driver = new CombineDriver(conf);
 
 	}
 
@@ -156,6 +153,7 @@ public class RecordMerger implements RawRecordIterator {
 					File outputFile = new File(tmpDir, "intermediate." + round);
 
 					LocalRecordWriter writer = new LocalRecordWriter(this.conf, outputFile);
+
 					writeFile(this, writer);
 					writer.close();
 					this.close();
@@ -169,6 +167,18 @@ public class RecordMerger implements RawRecordIterator {
 		} finally {
 			long end = System.currentTimeMillis();
 			logger.info("Merge finishes in {} rounds, {}ms.", round, (end - start));
+		}
+
+	}
+
+	private void writeFile(RawRecordIterator iterator, LocalRecordWriter writer) throws IOException {
+		if (conf.getMergeCombine()) {
+			driver.init(iterator, writer);
+			driver.run();
+		} else {
+			while (iterator.next()) {
+				writer.append(iterator.getKey(), iterator.getValue());
+			}
 		}
 
 	}

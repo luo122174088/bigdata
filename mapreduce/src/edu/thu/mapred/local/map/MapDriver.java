@@ -32,10 +32,10 @@ public class MapDriver extends BaseDriver {
 		this.mapIds = mapIds;
 	}
 
-	public void init(TaskId id, File split) throws Exception {
+	public void init(TaskId id, File file) throws Exception {
 		super.init(id);
 		this.collector.init(id);
-		this.inputFile = split;
+		this.inputFile = file;
 	};
 
 	@Override

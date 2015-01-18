@@ -378,11 +378,12 @@ class MapOutputCollector implements IndexSortable {
 			segments.add(i, s);
 		}
 
-		RawRecordIterator kvIter = RecordMerger.merge(segments, this.fileHelper.getTempDir(),
+		RawRecordIterator kvIter = RecordMerger.merge(conf, segments, this.fileHelper.getTempDir(),
 				this.conf.getSortFactor(), this.comparator);
 
 		LocalRecordWriter writer = new LocalRecordWriter(this.conf, finalOutputFile);
-		CombineDriver driver = new CombineDriver(this.conf, this.id, writer, kvIter);
+		CombineDriver driver = new CombineDriver(this.conf);
+		driver.init(kvIter, writer);
 		driver.run();
 		this.mapFiles.add(finalOutputFile);
 		writer.close();
@@ -458,7 +459,8 @@ class MapOutputCollector implements IndexSortable {
 			int sp_start = sp_index;
 			sp_index = end;
 			RawRecordIterator kvIter = new MapResultIterator(sp_start, sp_index);
-			CombineDriver driver = new CombineDriver(this.conf, this.id, writer, kvIter);
+			CombineDriver driver = new CombineDriver(this.conf);
+			driver.init(kvIter, writer);
 			driver.run();
 		} finally {
 			if (writer != null) {

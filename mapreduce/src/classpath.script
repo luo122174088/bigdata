@@ -1,0 +1,4 @@
+mapred.jar:lib/commons-logging-1.1.1.jar:lib/gson-2.2.4.jar:lib/jackson-core-asl-1.9.13.jar:lib/jackson-mapper-asl-1.9.13.jar:lib/javacsv-2.0.jar:lib/log4j-1.2.17.jar:lib/odps-sdk-commons-0.14.0-SNAPSHOT.jar:lib/odps-sdk-core-0.14.0-SNAPSHOT.jar:lib/odps-sdk-mapred-0.14.0-SNAPSHOT.jar:lib/slf4j-api-1.7.5.jar:lib/slf4j-log4j12-1.7.5.jar
+
+
+java -Dinput.path=10M-5/ -Dmap.threads=1 -Xmx512m -cp $CP  com.aliyun.odps.mapred.WordCount wc_in wc_out
