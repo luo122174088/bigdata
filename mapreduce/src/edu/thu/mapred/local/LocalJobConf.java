@@ -72,4 +72,8 @@ public class LocalJobConf extends JobConf {
 		return getInt("io.sort.mb", 100);
 	}
 
+	public float getIndexPer() {
+		return getFloat("io.sort.per", 0.1f);
+	}
+
 }

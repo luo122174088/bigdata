@@ -2,6 +2,7 @@ package edu.thu.mapred.local.io;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
@@ -32,7 +33,7 @@ public class RecordMerger implements RawRecordIterator {
 
 	private LocalJobConf conf;
 
-	private List<RecordSegment> segments = new LinkedList<>();
+	private PriorityQueue<RecordSegment> segments;;
 
 	private RecordComparator comparator;
 
@@ -69,12 +70,12 @@ public class RecordMerger implements RawRecordIterator {
 	public RecordMerger(List<RecordSegment> segments, boolean deleteInputs,
 			RecordComparator comparator) throws IOException {
 		this.comparator = comparator;
-
+		this.segments = new PriorityQueue<>(segmentComparator);
+		this.segments.initialize(segments.size());
 		for (RecordSegment seg : segments) {
-			this.segments.add(seg);
+			this.segments.put(seg);
 		}
 
-		Collections.sort(this.segments, this.segmentComparator);
 	}
 
 	@Override
@@ -136,7 +137,7 @@ public class RecordMerger implements RawRecordIterator {
 
 				int num = 0;
 				RecordSegment segment = null;
-				while ((segment = getRecordSegment()) != null && num < factor) {
+				while (num < factor && (segment = getRecordSegment()) != null) {
 					segment.init();
 					boolean hasNext = segment.next();
 					if (hasNext) {
@@ -157,12 +158,10 @@ public class RecordMerger implements RawRecordIterator {
 					LocalRecordWriter writer = new LocalRecordWriter(this.conf, outputFile);
 					writeFile(this, writer);
 					writer.close();
-
 					this.close();
 					RecordSegment tempSegment = new RecordSegment(outputFile, false);
-					this.segments.add(tempSegment);
+					this.segments.put(tempSegment);
 					numSegments = this.segments.size();
-					Collections.sort(this.segments, this.segmentComparator);
 					round++;
 				}
 				factor = origFactor;
@@ -189,7 +188,7 @@ public class RecordMerger implements RawRecordIterator {
 		if (this.segments.size() == 0) {
 			return null;
 		}
-		RecordSegment segment = this.segments.remove(0);
+		RecordSegment segment = this.segments.pop();
 		return segment;
 	}
 
@@ -232,7 +231,10 @@ public class RecordMerger implements RawRecordIterator {
 			this.reader.close();
 
 			if (!this.preserve) {
-				this.file.delete();
+				boolean result = this.file.delete();
+				if (!result) {
+					logger.warn("Fail to delete " + file.getAbsolutePath());
+				}
 			}
 		}
 	}

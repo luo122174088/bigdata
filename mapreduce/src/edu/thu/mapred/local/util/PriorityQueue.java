@@ -18,10 +18,12 @@ public class PriorityQueue<T> {
 
 	@SuppressWarnings("unchecked")
 	public void initialize(int maxSize) {
+		if (this.maxSize < maxSize) {
+			int heapSize = maxSize + 1;
+			this.heap = (T[]) new Object[heapSize];
+			this.maxSize = maxSize;
+		}
 		this.size = 0;
-		int heapSize = maxSize + 1;
-		this.heap = (T[]) new Object[heapSize];
-		this.maxSize = maxSize;
 	}
 
 	public final void put(T element) {

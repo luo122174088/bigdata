@@ -50,7 +50,7 @@ class MapOutputCollector implements IndexSortable {
 	private volatile int numSpills = 0;
 	private volatile Exception spillException = null;
 
-	private final float idxper = 0.05f;
+	private final float idxper;
 	private final int sortmb;
 	private final float spillper;
 
@@ -76,6 +76,7 @@ class MapOutputCollector implements IndexSortable {
 		this.fileHelper = fileHelper;
 		this.mapFiles = mapFiles;
 
+		this.idxper = conf.getIndexPer();
 		this.spillper = conf.getSpiller();
 		this.sortmb = conf.getSortMB();
 
@@ -98,10 +99,13 @@ class MapOutputCollector implements IndexSortable {
 		this.rec_start = 0;
 		this.rec_end = 0;
 		this.rec_index = 0;
+		this.buf_start = 0;
+		this.buf_end = 0;
 		this.buf_index = 0;
 		this.buf_mark = 0;
 		this.numSpills = 0;
 		this.spillException = null;
+		this.buf_void = this.rec_buffer.length;
 
 		// start spillThread
 		this.spillThread = new SpillThread();
