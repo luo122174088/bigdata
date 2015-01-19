@@ -17,7 +17,8 @@ public class LocalRecordWriter {
 	DataOutputBuffer buffer = new DataOutputBuffer();
 
 	public LocalRecordWriter(LocalJobConf conf, File file) throws IOException {
-		this.out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
+		this.out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file),
+				conf.getWriteBufferSize()));
 	}
 
 	public void close() throws IOException {

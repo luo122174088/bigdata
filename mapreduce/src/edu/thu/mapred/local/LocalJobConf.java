@@ -11,7 +11,7 @@ public class LocalJobConf extends JobConf {
 
 	private static final String IO_MERGE_COMBINE = "io.merge.combine";
 
-	private static final String IO_SORT_PER = "io.sort.per";
+	private static final String IO_INDEX_PER = "io.sort.per";
 
 	private static final String IO_SORT_MB = "io.sort.mb";
 
@@ -26,6 +26,10 @@ public class LocalJobConf extends JobConf {
 	private static final String OUTPUT_SCHEMA = "output.schema";
 
 	private static final String INPUT_PATH = "input.path";
+
+	private static final String IO_READ_BUFFER_SIZE = "io.read.buffer.size";
+
+	private static final String IO_WRITE_BUFFER_SIZE = "io.write.buffer.size";
 
 	public LocalJobConf(Configuration conf) {
 		super(conf);
@@ -73,8 +77,24 @@ public class LocalJobConf extends JobConf {
 		return value;
 	}
 
+	/**
+	 * Important
+	 * @return
+	 */
+	public float getSpiller() {
+		return getFloat(LocalJobConf.IO_SPILLER, 0.6f);
+	}
+
+	public int getSortMB() {
+		return getInt(LocalJobConf.IO_SORT_MB, 100);
+	}
+
+	public float getIndexPer() {
+		return getFloat(LocalJobConf.IO_INDEX_PER, 0.2f);
+	}
+
 	public int getMapThreads() {
-		return getInt(LocalJobConf.MAP_THREADS, 2);
+		return getInt(LocalJobConf.MAP_THREADS, 1);
 	}
 
 	public int getSortFactor() {
@@ -85,20 +105,15 @@ public class LocalJobConf extends JobConf {
 		return new LocalRecord.DefaultRecordComparator(getMapOutputKeySchema());
 	}
 
-	public float getSpiller() {
-		return getFloat(LocalJobConf.IO_SPILLER, 0.8f);
-	}
-
-	public int getSortMB() {
-		return getInt(LocalJobConf.IO_SORT_MB, 100);
-	}
-
-	public float getIndexPer() {
-		return getFloat(LocalJobConf.IO_SORT_PER, 0.1f);
-	}
-
 	public boolean getMergeCombine() {
 		return getBoolean(LocalJobConf.IO_MERGE_COMBINE, true);
 	}
 
+	public int getReadBufferSize() {
+		return getInt(LocalJobConf.IO_READ_BUFFER_SIZE, 512) * 1024;
+	}
+
+	public int getWriteBufferSize() {
+		return getInt(LocalJobConf.IO_WRITE_BUFFER_SIZE, 512) * 1024;
+	}
 }

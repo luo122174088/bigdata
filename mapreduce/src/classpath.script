@@ -2,3 +2,7 @@ mapred.jar:lib/commons-logging-1.1.1.jar:lib/gson-2.2.4.jar:lib/jackson-core-asl
 
 
 java -Dinput.path=10M-5/ -Dmap.threads=1 -Xmx512m -cp $CP  com.aliyun.odps.mapred.WordCount wc_in wc_out
+
+scp generator.jar root@123.57.7.98:/home/
+
+ssh -l root 123.57.7.98

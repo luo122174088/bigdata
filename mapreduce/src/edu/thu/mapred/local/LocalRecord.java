@@ -18,8 +18,6 @@ public class LocalRecord implements Record {
 	private Column[] columns;
 	private Object[] values;
 
-	private HashMap<String, Integer> names = new HashMap<String, Integer>();
-
 	public LocalRecord(int len) {
 		this.columns = new Column[len];
 		this.values = new Object[len];
@@ -31,9 +29,6 @@ public class LocalRecord implements Record {
 		}
 		this.columns = columns;
 		this.values = new Object[columns.length];
-		for (int i = 0; i < columns.length; i++) {
-			this.names.put(columns[i].getName(), i);
-		}
 
 	}
 
@@ -59,12 +54,12 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void set(String columnName, Object value) {
-		set(getColumnIndex(columnName), value);
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public Object get(String columnName) {
-		return this.values[getColumnIndex(columnName)];
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
@@ -79,7 +74,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setBigint(String columnName, Long value) {
-		setBigint(getColumnIndex(columnName), value);
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
@@ -99,7 +94,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setDouble(String columnName, Double value) {
-		setDouble(getColumnIndex(columnName), value);
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
@@ -119,7 +114,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setBoolean(String columnName, Boolean value) {
-		setBoolean(getColumnIndex(columnName), value);
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
@@ -139,7 +134,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setDatetime(String columnName, Date value) {
-		setDatetime(getColumnIndex(columnName), value);
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
@@ -159,12 +154,12 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setString(String columnName, String value) {
-		setString(getColumnIndex(columnName), value);
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public String getString(String columnName) {
-		return getString(getColumnIndex(columnName));
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
@@ -174,7 +169,7 @@ public class LocalRecord implements Record {
 
 	@Override
 	public void setString(String columnName, byte[] value) {
-		setString(getColumnIndex(columnName), value);
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
@@ -211,14 +206,6 @@ public class LocalRecord implements Record {
 		return sb.toString();
 	}
 
-	private int getColumnIndex(String name) {
-		Integer idx = this.names.get(name);
-		if (idx == null) {
-			throw new IllegalArgumentException("No such column:" + name);
-		}
-		return idx;
-	}
-
 	public void serialize(DataOutput out) throws IOException {
 		for (int i = 0; i < this.values.length; i++) {
 			OdpsType type = this.columns[i].getType();
@@ -235,7 +222,6 @@ public class LocalRecord implements Record {
 			default:
 				throw new UnsupportedOperationException("Unimplemented");
 			}
-
 		}
 	}
 

@@ -157,7 +157,7 @@ public class RecordMerger implements RawRecordIterator {
 					writeFile(this, writer);
 					writer.close();
 					this.close();
-					RecordSegment tempSegment = new RecordSegment(outputFile, false);
+					RecordSegment tempSegment = new RecordSegment(conf, outputFile, false);
 					this.segments.put(tempSegment);
 					numSegments = this.segments.size();
 					round++;
@@ -206,18 +206,19 @@ public class RecordMerger implements RawRecordIterator {
 		LocalRecordReader reader = null;
 		DataInputBuffer key = new DataInputBuffer();
 		DataInputBuffer value = new DataInputBuffer();
-
+		LocalJobConf conf;
 		File file = null;
 		boolean preserve = false;
 
-		public RecordSegment(File file, boolean preserve) throws IOException {
+		public RecordSegment(LocalJobConf conf, File file, boolean preserve) throws IOException {
+			this.conf = conf;
 			this.file = file;
 			this.preserve = preserve;
 		}
 
 		private void init() throws IOException {
 			if (this.reader == null) {
-				this.reader = new LocalRecordReader(this.file);
+				this.reader = new LocalRecordReader(this.conf, this.file);
 			}
 		}
 

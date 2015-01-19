@@ -1,41 +1,51 @@
 package edu.thu.mapred.local.io;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 
 import com.aliyun.odps.Column;
 import com.aliyun.odps.OdpsType;
 import com.aliyun.odps.data.Record;
-import com.csvreader.CsvReader;
+import com.univocity.parsers.csv.CsvParser;
+import com.univocity.parsers.csv.CsvParserSettings;
 
 import edu.thu.mapred.local.LocalRecord;
 
 public class CsvRecordReader {
 
 	private LocalRecord record;
-	private CsvReader reader;
+	private CsvParser reader;
+	private String[] row;
+	private boolean eof = false;
 
 	public CsvRecordReader(File file) throws IOException {
-		this.reader = new CsvReader(file.getAbsolutePath());
+		this.reader = new CsvParser(new CsvParserSettings());
+		this.reader.beginParsing(new FileReader(file));
 	}
 
 	public Record read() throws IOException {
-		if (!this.reader.readRecord()) {
+		if (eof) {
+			return null;
+		}
+		row = this.reader.parseNext();
+		if (row == null) {
+			eof = true;
 			return null;
 		}
 		if (this.record == null) {
-			int columns = this.reader.getColumnCount();
+			int columns = row.length;
 			Column[] schema = new Column[columns];
 			for (int i = 0; i < columns; i++) {
 				schema[i] = new Column("col" + i, OdpsType.STRING);
 			}
 			this.record = new LocalRecord(schema);
 		}
-		this.record.fastSet(this.reader.getValues());
+		this.record.fastSet(this.row);
 		return this.record;
 	}
 
 	public void close() {
-		this.reader.close();
+		this.reader.stopParsing();
 	}
 }

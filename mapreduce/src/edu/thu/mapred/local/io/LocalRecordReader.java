@@ -7,20 +7,22 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.util.IOUtil;
 
 public class LocalRecordReader {
-	private static final int DEFAULT_BUFFER_SIZE = 512 * 1024;
+	//buffer 512k
 	private static final int MAX_HEADER_SIZE = 2 * 9;
 
 	protected final InputStream in;
 	protected boolean eof = false;
 	protected byte[] buffer = null;
-	protected int bufferSize = DEFAULT_BUFFER_SIZE;
+	protected int bufferSize;
 	protected DataInputBuffer dataIn = new DataInputBuffer();
 
-	public LocalRecordReader(File file) throws IOException {
+	public LocalRecordReader(LocalJobConf conf, File file) throws IOException {
 		this.in = new BufferedInputStream(new FileInputStream(file));
+		this.bufferSize = conf.getReadBufferSize();
 	}
 
 	private int readData(byte[] buf, int off, int len) throws IOException {

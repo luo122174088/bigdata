@@ -5,7 +5,6 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/odps-sdk-mapred-0.14.0-SNAPSHOT.jar" sourcepath="lib/odps-sdk-mapred-0.14.0-SNAPSHOT-sources.jar"/>
 	<classpathentry kind="lib" path="lib/odps-sdk-commons-0.14.0-SNAPSHOT.jar" sourcepath="/Users/luochen/Documents/Development/odps-sdk-java/odps-sdk-core/odps-sdk-core-0.13.2-sources.jar"/>
-	<classpathentry kind="lib" path="lib/javacsv-2.0.jar" sourcepath="lib/opencsv-2.0-sources.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-api-1.7.5.jar"/>
 	<classpathentry kind="lib" path="lib/log4j-1.2.17.jar"/>
 	<classpathentry kind="lib" path="lib/commons-logging-1.1.1.jar"/>
@@ -13,5 +12,6 @@
 	<classpathentry kind="lib" path="lib/slf4j-log4j12-1.7.5.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
 	<classpathentry kind="lib" path="lib/odps-sdk-core-0.14.0-SNAPSHOT.jar"/>
+	<classpathentry kind="lib" path="lib/univocity-parsers-1.3.1.jar" sourcepath="/Users/luochen/Documents/Research/bigdata/univocity-parsers-master/src"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

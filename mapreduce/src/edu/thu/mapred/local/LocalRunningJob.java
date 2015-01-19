@@ -78,6 +78,10 @@ public class LocalRunningJob implements RunningJob {
 	private void map() throws Exception {
 		logger.info("Map phase starts.");
 		String inputPath = this.conf.getMapInputPath();
+		if (inputPath == null) {
+			logger.error("No input found. Please specify job input with input.path property.");
+			return;
+		}
 		mapFiles = Collections.synchronizedList(new ArrayList<File>());
 		File dir = new File(inputPath);
 		File[] files = dir.listFiles();
@@ -138,47 +142,48 @@ public class LocalRunningJob implements RunningJob {
 
 	@Override
 	public String getInstanceID() {
-		return null;
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public boolean isComplete() {
-		return false;
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public boolean isSuccessful() {
-		return false;
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public JobStatus getJobStatus() {
-		return null;
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public void killJob() {
+		throw new UnsupportedOperationException("Unimplemented");
 
 	}
 
 	@Override
 	public Counters getCounters() {
-		return null;
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public String getDiagnostics() {
-		return null;
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public float mapProgress() throws IOException {
-		return 0;
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 	@Override
 	public float reduceProgress() throws IOException {
-		return 0;
+		throw new UnsupportedOperationException("Unimplemented");
 	}
 
 }

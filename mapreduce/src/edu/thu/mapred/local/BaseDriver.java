@@ -17,7 +17,6 @@ public abstract class BaseDriver implements Runnable {
 	protected TaskId id;
 	protected List<File> mapFiles;
 	protected TaskFileHelper fileHelper;
-
 	protected static Logger logger = LoggerFactory.getLogger(BaseDriver.class);
 
 	public BaseDriver(LocalJobConf conf) {

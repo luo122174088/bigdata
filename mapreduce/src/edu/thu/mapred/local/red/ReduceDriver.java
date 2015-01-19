@@ -34,7 +34,7 @@ public class ReduceDriver extends BaseDriver {
 
 		List<RecordSegment> segments = new ArrayList<>(this.mapFiles.size());
 		for (File file : this.mapFiles) {
-			segments.add(new RecordSegment(file, false));
+			segments.add(new RecordSegment(conf, file, false));
 		}
 		RawRecordIterator in = RecordMerger.merge(conf, segments, this.fileHelper.getTempDir(),
 				this.conf.getSortFactor(), this.conf.getMapOutputKeyComparator());
@@ -43,7 +43,7 @@ public class ReduceDriver extends BaseDriver {
 		Reducer reducer = reducerClass.newInstance();
 
 		File outputFile = new File(getTaskDir(), "part-" + this.id.getInstId());
-		CsvRecordWriter writer = new CsvRecordWriter(outputFile);
+		CsvRecordWriter writer = new CsvRecordWriter(conf, outputFile);
 		TaskContext context = new ReduceTaskContext(this.conf, this.id, writer);
 		LocalRecordIterator iterator = new LocalRecordIterator(in,
 				this.conf.getMapOutputKeyComparator(), this.conf.getMapOutputKeySchema(),

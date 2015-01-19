@@ -171,6 +171,7 @@ class MapOutputCollector implements IndexSortable {
 				}
 				if (full) {
 					// index full, wait for spill to finish
+					logger.debug("Map task {} output collector full, wait for spill to finish.", id);
 					try {
 						while (this.rec_start != this.rec_end) {
 							this.spillDone.await();
@@ -374,7 +375,7 @@ class MapOutputCollector implements IndexSortable {
 		}
 		List<RecordSegment> segments = new ArrayList<RecordSegment>(this.numSpills);
 		for (int i = 0; i < this.numSpills; i++) {
-			RecordSegment s = new RecordSegment(files[i], false);
+			RecordSegment s = new RecordSegment(conf, files[i], false);
 			segments.add(i, s);
 		}
 
@@ -411,6 +412,7 @@ class MapOutputCollector implements IndexSortable {
 					try {
 						spillLock.unlock();
 						spill();
+						logger.info("Map task {} finishes spill.", id);
 					} catch (Exception e) {
 						spillException = e;
 					} finally {
@@ -434,6 +436,7 @@ class MapOutputCollector implements IndexSortable {
 	}
 
 	private synchronized void startSpill() {
+		logger.debug("Map task {} start spill.", id);
 		logger.debug("rec_start = {}, rec_end = {}, length = {}", rec_start, rec_index,
 				rec_offsets.length);
 		logger.debug("buf_start = {}, buf_end = {}, bufvoid = {}", buf_start, buf_mark, buf_void);

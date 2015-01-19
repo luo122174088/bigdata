@@ -49,31 +49,33 @@ public class MapDriver extends BaseDriver {
 				}
 				init(this.mapIds.remove(0), this.inputFiles.remove(0));
 			}
-
-			logger.info("Map task {} starts.", this.id);
-			long start = System.currentTimeMillis();
-			Class<? extends Mapper> mapperClass = this.conf.getMapperClass();
-			Mapper mapper = mapperClass.newInstance();
-
-			CsvRecordReader reader = new CsvRecordReader(this.inputFile);
-			MapTaskContext context = new MapTaskContext(this.conf, this.id, this.collector);
-			mapper.setup(context);
-
-			Record record = null;
-			try {
-				while ((record = reader.read()) != null) {
-					mapper.map(0, record, context);
-				}
-			} finally {
-				reader.close();
-				this.collector.flush();
-				this.collector.close();
-				mapper.cleanup(context);
-				long end = System.currentTimeMillis();
-				logger.info("Map task {} ends in {}ms", this.id, (end - start));
-			}
+			runMap();
 		}
+	}
 
+	protected void runMap() throws Exception {
+		logger.info("Map task {} starts.", this.id);
+		long start = System.currentTimeMillis();
+		Class<? extends Mapper> mapperClass = this.conf.getMapperClass();
+		Mapper mapper = mapperClass.newInstance();
+
+		CsvRecordReader reader = new CsvRecordReader(this.inputFile);
+		MapTaskContext context = new MapTaskContext(this.conf, this.id, this.collector);
+		mapper.setup(context);
+
+		Record record = null;
+		try {
+			while ((record = reader.read()) != null) {
+				mapper.map(0, record, context);
+			}
+		} finally {
+			reader.close();
+			this.collector.flush();
+			this.collector.close();
+			mapper.cleanup(context);
+			long end = System.currentTimeMillis();
+			logger.info("Map task {} ends in {}ms", this.id, (end - start));
+		}
 	}
 
 	@Override
