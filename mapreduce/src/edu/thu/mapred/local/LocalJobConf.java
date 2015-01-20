@@ -31,6 +31,10 @@ public class LocalJobConf extends JobConf {
 
 	private static final String IO_WRITE_BUFFER_SIZE = "io.write.buffer.size";
 
+	private static final String MAP_SIMPLE_COLLECTOR = "map.simple.collector";
+
+	private static final String SPILL_BUFFER_MB = "spill.buffer.mb";
+
 	public LocalJobConf(Configuration conf) {
 		super(conf);
 	}
@@ -101,6 +105,10 @@ public class LocalJobConf extends JobConf {
 		return getInt(LocalJobConf.IO_SORT_FACTOR, 10);
 	}
 
+	public boolean getSimpleCollector() {
+		return getBoolean(LocalJobConf.MAP_SIMPLE_COLLECTOR, true);
+	}
+
 	public RecordComparator getMapOutputKeyComparator() {
 		return new LocalRecord.DefaultRecordComparator(getMapOutputKeySchema());
 	}
@@ -115,5 +123,9 @@ public class LocalJobConf extends JobConf {
 
 	public int getWriteBufferSize() {
 		return getInt(LocalJobConf.IO_WRITE_BUFFER_SIZE, 512) * 1024;
+	}
+
+	public int getSpillBufferMB() {
+		return getInt(LocalJobConf.SPILL_BUFFER_MB, 150);
 	}
 }

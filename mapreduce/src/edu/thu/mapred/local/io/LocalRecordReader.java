@@ -25,6 +25,10 @@ public class LocalRecordReader {
 		this.bufferSize = conf.getReadBufferSize();
 	}
 
+	public LocalRecordReader() {
+		this.in = null;
+	}
+
 	private int readData(byte[] buf, int off, int len) throws IOException {
 		int bytesRead = 0;
 		while (bytesRead < len) {
@@ -95,8 +99,9 @@ public class LocalRecordReader {
 	}
 
 	public void close() throws IOException {
-
-		this.in.close();
+		if (this.in != null) {
+			this.in.close();
+		}
 
 		this.dataIn = null;
 		this.buffer = null;

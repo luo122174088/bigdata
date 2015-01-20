@@ -18,16 +18,17 @@ import com.aliyun.odps.mapred.TaskId;
 import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.LocalRecord;
 import edu.thu.mapred.local.io.DataInputBuffer;
+import edu.thu.mapred.local.io.FileSegment;
 import edu.thu.mapred.local.io.LocalRecordWriter;
 import edu.thu.mapred.local.io.RawRecordIterator;
 import edu.thu.mapred.local.io.RecordMerger;
-import edu.thu.mapred.local.io.RecordMerger.RecordSegment;
+import edu.thu.mapred.local.io.RecordSegment;
 import edu.thu.mapred.local.io.TaskFileHelper;
 import edu.thu.mapred.local.util.IndexSorter;
 import edu.thu.mapred.local.util.IndexSorter.IndexSortable;
 import edu.thu.mapred.local.util.RecordComparator;
 
-class MapOutputCollector implements IndexSortable {
+class MapOutputCollector implements OutputCollector, IndexSortable {
 	private static Logger logger = LoggerFactory.getLogger(MapOutputCollector.class);
 
 	private static final int KEY = 0;
@@ -68,10 +69,10 @@ class MapOutputCollector implements IndexSortable {
 	private RecordComparator comparator;
 	private TaskId id;
 	private TaskFileHelper fileHelper;
-	private List<File> mapFiles;
+	private List<RecordSegment> mapFiles;
 
-	public MapOutputCollector(LocalJobConf conf, TaskFileHelper fileHelper, List<File> mapFiles)
-			throws Exception {
+	public MapOutputCollector(LocalJobConf conf, TaskFileHelper fileHelper,
+			List<RecordSegment> mapFiles) throws Exception {
 		this.conf = conf;
 		this.fileHelper = fileHelper;
 		this.mapFiles = mapFiles;
@@ -193,10 +194,8 @@ class MapOutputCollector implements IndexSortable {
 	public int compareIndex(int i, int j) {
 		int ii = this.rec_offsets[i % this.rec_offsets.length];
 		int ij = this.rec_offsets[j % this.rec_offsets.length];
-		return this.comparator.compare(this.rec_buffer, this.rec_indices[ii + KEY], this.rec_indices[ii
-				+ VALUE]
-				- this.rec_indices[ii + KEY], this.rec_buffer, this.rec_indices[ij + KEY],
-				this.rec_indices[ij + VALUE] - this.rec_indices[ij + KEY]);
+		return this.comparator.compare(this.rec_buffer, this.rec_indices[ii + KEY], this.rec_buffer,
+				this.rec_indices[ij + KEY]);
 	}
 
 	@Override
@@ -318,7 +317,7 @@ class MapOutputCollector implements IndexSortable {
 		}
 	}
 
-	public synchronized void flush() throws Exception {
+	public synchronized void flush() throws IOException {
 		this.spillLock.lock();
 		try {
 			while (this.rec_start != this.rec_end) {
@@ -343,7 +342,7 @@ class MapOutputCollector implements IndexSortable {
 			this.spillThread.join();
 			this.spillThread = null;
 		} catch (InterruptedException e) {
-			throw e;
+			throw new IOException(e);
 		}
 		// kvbuffer = null;
 		// mergeParts();
@@ -364,7 +363,7 @@ class MapOutputCollector implements IndexSortable {
 
 		if (this.numSpills == 1) {
 			files[0].renameTo(finalOutputFile);
-			this.mapFiles.add(finalOutputFile);
+			this.mapFiles.add(new FileSegment(conf, finalOutputFile, false));
 			return;
 		}
 
@@ -375,7 +374,7 @@ class MapOutputCollector implements IndexSortable {
 		}
 		List<RecordSegment> segments = new ArrayList<RecordSegment>(this.numSpills);
 		for (int i = 0; i < this.numSpills; i++) {
-			RecordSegment s = new RecordSegment(conf, files[i], false);
+			RecordSegment s = new FileSegment(conf, files[i], false);
 			segments.add(i, s);
 		}
 
@@ -386,7 +385,7 @@ class MapOutputCollector implements IndexSortable {
 		CombineDriver driver = new CombineDriver(this.conf);
 		driver.init(kvIter, writer);
 		driver.run();
-		this.mapFiles.add(finalOutputFile);
+		this.mapFiles.add(new FileSegment(conf, finalOutputFile, false));
 		writer.close();
 
 		for (int i = 0; i < this.numSpills; i++) {
@@ -446,7 +445,7 @@ class MapOutputCollector implements IndexSortable {
 		this.spillReady.signal();
 	}
 
-	private void spill() throws Exception {
+	private void spill() throws IOException {
 		File file = this.fileHelper.getSpillFile(this.numSpills);
 		int end = 0;
 		if (this.rec_end > this.rec_start) {
@@ -469,7 +468,7 @@ class MapOutputCollector implements IndexSortable {
 			if (writer != null) {
 				writer.close();
 			}
-			this.mapFiles.add(file);
+			this.mapFiles.add(new FileSegment(conf, file, false));
 		}
 		this.numSpills++;
 	}

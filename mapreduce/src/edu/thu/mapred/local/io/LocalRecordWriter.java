@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 
 import com.aliyun.odps.data.Record;
 
@@ -19,6 +20,10 @@ public class LocalRecordWriter {
 	public LocalRecordWriter(LocalJobConf conf, File file) throws IOException {
 		this.out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file),
 				conf.getWriteBufferSize()));
+	}
+
+	public LocalRecordWriter(LocalJobConf conf, OutputStream out) throws IOException {
+		this.out = new DataOutputStream(out);
 	}
 
 	public void close() throws IOException {

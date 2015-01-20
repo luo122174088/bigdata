@@ -34,8 +34,10 @@ public class WordCountTest {
 			line2 = reader2.readLine();
 			if (line1 != null && line2 == null) {
 				System.out.println("Error, " + result + " ends.");
+				break;
 			} else if (line1 == null && line2 != null) {
 				System.out.println("Error, " + outputFile.getPath() + " ends.");
+				break;
 			} else if (line1 == null && line2 == null) {
 				System.out.println("Correct.");
 				break;
@@ -52,6 +54,7 @@ public class WordCountTest {
 		reader2.close();
 	}
 
+	@Test
 	public void test1() throws Exception {
 		int[] inputs = new int[] { 1, 4, 8, 16, 64, 256 };
 		for (int i : inputs) {
@@ -73,7 +76,6 @@ public class WordCountTest {
 		test(input, result);
 	}
 
-	@Test
 	public void test4() throws Exception {
 		System.setProperty("input.path", "data/test");
 		WordCount.main(new String[] { "wc_in", "wc_out" });

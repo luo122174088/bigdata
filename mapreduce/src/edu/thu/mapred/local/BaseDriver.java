@@ -9,13 +9,14 @@ import org.slf4j.LoggerFactory;
 
 import com.aliyun.odps.mapred.TaskId;
 
+import edu.thu.mapred.local.io.RecordSegment;
 import edu.thu.mapred.local.io.TaskFileHelper;
 
 public abstract class BaseDriver implements Runnable {
 
 	protected LocalJobConf conf;
 	protected TaskId id;
-	protected List<File> mapFiles;
+	protected List<RecordSegment> mapFiles;
 	protected TaskFileHelper fileHelper;
 	protected static Logger logger = LoggerFactory.getLogger(BaseDriver.class);
 
@@ -23,7 +24,7 @@ public abstract class BaseDriver implements Runnable {
 		this(conf, null);
 	}
 
-	public BaseDriver(LocalJobConf conf, List<File> mapFiles) {
+	public BaseDriver(LocalJobConf conf, List<RecordSegment> mapFiles) {
 		this.conf = conf;
 		this.mapFiles = mapFiles;
 		this.fileHelper = new TaskFileHelper(this);

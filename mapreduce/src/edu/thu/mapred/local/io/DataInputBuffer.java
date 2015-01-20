@@ -4,7 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 
 public class DataInputBuffer extends DataInputStream {
-	private static class Buffer extends ByteArrayInputStream {
+	public static class Buffer extends ByteArrayInputStream {
 		public Buffer() {
 			super(new byte[] {});
 		}
@@ -35,7 +35,7 @@ public class DataInputBuffer extends DataInputStream {
 		this(new Buffer());
 	}
 
-	private DataInputBuffer(Buffer buffer) {
+	public DataInputBuffer(Buffer buffer) {
 		super(buffer);
 		this.buffer = buffer;
 	}

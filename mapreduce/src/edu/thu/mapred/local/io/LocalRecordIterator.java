@@ -18,8 +18,6 @@ public class LocalRecordIterator implements Iterator<Record> {
 	private boolean hasNext;
 	private boolean more;
 	private RecordComparator comparator;
-	private DataInputBuffer keyIn = new DataInputBuffer();
-	private DataInputBuffer valueIn = new DataInputBuffer();
 
 	public LocalRecordIterator(RawRecordIterator in, RecordComparator comparator, Column[] keySchema,
 			Column[] valueSchema) throws IOException {
@@ -81,10 +79,10 @@ public class LocalRecordIterator implements Iterator<Record> {
 	private void readNextKey() throws IOException {
 		this.more = this.in.next();
 		if (this.more) {
-			DataInputBuffer nextKeyBytes = this.in.getKey();
-			this.keyIn.reset(nextKeyBytes.getData(), nextKeyBytes.getPosition(), nextKeyBytes.getLength()
-					- nextKeyBytes.getPosition());
-			this.nextKey.deserialize(this.keyIn);
+			DataInputBuffer keyBuffer = this.in.getKey();
+			//this.keyIn.reset(keyBuffer.getData(), keyBuffer.getPosition(), keyBuffer.getLength()
+			//		- keyBuffer.getPosition());
+			this.nextKey.deserialize(keyBuffer);
 			this.hasNext = this.key != null && (this.comparator.compare(this.key, this.nextKey) == 0);
 		} else {
 			this.hasNext = false;
@@ -92,10 +90,10 @@ public class LocalRecordIterator implements Iterator<Record> {
 	}
 
 	private void readNextValue() throws IOException {
-		DataInputBuffer nextValueBytes = this.in.getValue();
-		this.valueIn.reset(nextValueBytes.getData(), nextValueBytes.getPosition(),
-				nextValueBytes.getLength() - nextValueBytes.getPosition());
-		this.value.deserialize(this.valueIn);
+		DataInputBuffer valueBuffer = this.in.getValue();
+		//		this.valueIn.reset(valueBuffer.getData(), valueBuffer.getPosition(), valueBuffer.getLength()
+		//			- valueBuffer.getPosition());
+		this.value.deserialize(valueBuffer);
 	}
 
 }

@@ -2,13 +2,12 @@ package edu.thu.mapred.local.io;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.aliyun.odps.mapred.TaskId;
 
 import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.map.CombineDriver;
@@ -26,18 +25,17 @@ public class RecordMerger implements RawRecordIterator {
 
 	private LocalJobConf conf;
 
-	private PriorityQueue<RecordSegment> segments;;
-
+	private PriorityQueue<FileSegment> fileSegments;
+	private List<MemorySegment> memorySegments = new ArrayList<>();
 	private RecordComparator comparator;
-
 	private DataInputBuffer key;
 	private DataInputBuffer value;
 	private RecordSegment min;
 	private CombineDriver driver;
 
-	private Comparator<RecordSegment> segmentComparator = new Comparator<RecordSegment>() {
+	private Comparator<FileSegment> segmentComparator = new Comparator<FileSegment>() {
 		@Override
-		public int compare(RecordSegment o1, RecordSegment o2) {
+		public int compare(FileSegment o1, FileSegment o2) {
 			if (o1.getLength() == o2.getLength()) {
 				return 0;
 			}
@@ -51,25 +49,29 @@ public class RecordMerger implements RawRecordIterator {
 			DataInputBuffer key1 = o1.getKey();
 			DataInputBuffer key2 = o2.getKey();
 			int s1 = key1.getPosition();
-			int l1 = key1.getLength() - s1;
 			int s2 = key2.getPosition();
-			int l2 = key2.getLength() - s2;
 
-			return comparator.compare(key1.getData(), s1, l1, key2.getData(), s2, l2);
+			return comparator.compare(key1.getData(), s1, key2.getData(), s2);
 		}
 	};
-
 	private PriorityQueue<RecordSegment> queue = new PriorityQueue<>(recordComparator);
 
 	public RecordMerger(LocalJobConf conf, List<RecordSegment> segments, boolean deleteInputs,
 			RecordComparator comparator) throws IOException {
 		this.conf = conf;
 		this.comparator = comparator;
-		this.segments = new PriorityQueue<>(segmentComparator);
-		this.segments.initialize(segments.size());
+		this.fileSegments = new PriorityQueue<>(segmentComparator);
+		this.fileSegments.initialize(segments.size());
 		for (RecordSegment seg : segments) {
-			this.segments.put(seg);
+			if (seg instanceof FileSegment) {
+				this.fileSegments.put((FileSegment) seg);
+			} else {
+				this.memorySegments.add((MemorySegment) seg);
+			}
 		}
+
+		logger.debug("Merging {} memory segments, {} file segments.", memorySegments.size(),
+				fileSegments.size());
 
 		this.driver = new CombineDriver(conf);
 
@@ -120,18 +122,17 @@ public class RecordMerger implements RawRecordIterator {
 		return true;
 	}
 
+	//only merge files
 	RawRecordIterator merge(File tmpDir, int factor) throws IOException {
-		int numSegments = this.segments.size();
-		logger.info("Merging {} segments.", numSegments);
+		int numSegments = this.fileSegments.size();
+		logger.info("Merging {} file segments.", numSegments);
 		long start = System.currentTimeMillis();
 		int origFactor = factor;
 		int round = 1;
-
 		try {
 			while (true) {
 				factor = getRoundFactor(factor, round, numSegments);
 				queue.initialize(factor);
-
 				int num = 0;
 				RecordSegment segment = null;
 				while (num < factor && (segment = getRecordSegment()) != null) {
@@ -143,11 +144,26 @@ public class RecordMerger implements RawRecordIterator {
 					} else {
 						segment.close();
 						numSegments--;
-						logger.warn("Skipped invalid segment: {}", segment.file.getName());
+						logger.warn("Skipped invalid segment: {}", segment);
 					}
 				}
 
 				if (numSegments <= factor) {
+					if (memorySegments.size() > 0) {
+						PriorityQueue<RecordSegment> newQueue = new PriorityQueue<>(recordComparator);
+						newQueue.initialize(queue.size() + memorySegments.size());
+						for (MemorySegment m : memorySegments) {
+							m.init();
+							m.next();
+							newQueue.put(m);
+						}
+						RecordSegment s = null;
+						while ((s = queue.pop()) != null) {
+							newQueue.put(s);
+						}
+						queue = newQueue;
+					}
+
 					return this;
 				} else {
 					File outputFile = new File(tmpDir, "intermediate." + round);
@@ -157,9 +173,9 @@ public class RecordMerger implements RawRecordIterator {
 					writeFile(this, writer);
 					writer.close();
 					this.close();
-					RecordSegment tempSegment = new RecordSegment(conf, outputFile, false);
-					this.segments.put(tempSegment);
-					numSegments = this.segments.size();
+					FileSegment tempSegment = new FileSegment(conf, outputFile, false);
+					this.fileSegments.put(tempSegment);
+					numSegments = this.fileSegments.size();
 					round++;
 				}
 				factor = origFactor;
@@ -195,59 +211,11 @@ public class RecordMerger implements RawRecordIterator {
 	}
 
 	private RecordSegment getRecordSegment() {
-		if (this.segments.size() == 0) {
+		if (this.fileSegments.size() == 0) {
 			return null;
 		}
-		RecordSegment segment = this.segments.pop();
+		RecordSegment segment = this.fileSegments.pop();
 		return segment;
-	}
-
-	public static class RecordSegment {
-		LocalRecordReader reader = null;
-		DataInputBuffer key = new DataInputBuffer();
-		DataInputBuffer value = new DataInputBuffer();
-		LocalJobConf conf;
-		File file = null;
-		boolean preserve = false;
-
-		public RecordSegment(LocalJobConf conf, File file, boolean preserve) throws IOException {
-			this.conf = conf;
-			this.file = file;
-			this.preserve = preserve;
-		}
-
-		private void init() throws IOException {
-			if (this.reader == null) {
-				this.reader = new LocalRecordReader(this.conf, this.file);
-			}
-		}
-
-		DataInputBuffer getKey() {
-			return this.key;
-		}
-
-		DataInputBuffer getValue() {
-			return this.value;
-		}
-
-		long getLength() {
-			return this.file.length();
-		}
-
-		boolean next() throws IOException {
-			return this.reader.next(this.key, this.value);
-		}
-
-		void close() throws IOException {
-			this.reader.close();
-
-			if (!this.preserve) {
-				boolean result = this.file.delete();
-				if (!result) {
-					logger.warn("Fail to delete " + file.getAbsolutePath());
-				}
-			}
-		}
 	}
 
 }

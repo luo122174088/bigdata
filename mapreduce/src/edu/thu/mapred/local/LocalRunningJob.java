@@ -13,13 +13,12 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import sun.awt.windows.ThemeReader;
-
 import com.aliyun.odps.counter.Counters;
 import com.aliyun.odps.mapred.JobStatus;
 import com.aliyun.odps.mapred.RunningJob;
 import com.aliyun.odps.mapred.TaskId;
 
+import edu.thu.mapred.local.io.RecordSegment;
 import edu.thu.mapred.local.map.MapDriver;
 import edu.thu.mapred.local.red.ReduceDriver;
 
@@ -34,7 +33,7 @@ public class LocalRunningJob implements RunningJob {
 	private List<File> inputFiles = new LinkedList<File>();
 	private List<TaskId> mapIds = new LinkedList<TaskId>();
 
-	private List<File> mapFiles;
+	private List<RecordSegment> mapFiles;
 
 	private long jobStart;
 	private long jobEnd;
@@ -82,7 +81,7 @@ public class LocalRunningJob implements RunningJob {
 			logger.error("No input found. Please specify job input with input.path property.");
 			return;
 		}
-		mapFiles = Collections.synchronizedList(new ArrayList<File>());
+		mapFiles = Collections.synchronizedList(new ArrayList<RecordSegment>());
 		File dir = new File(inputPath);
 		File[] files = dir.listFiles();
 		if (files == null || files.length == 0) {

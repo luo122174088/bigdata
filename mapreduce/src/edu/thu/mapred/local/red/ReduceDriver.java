@@ -2,7 +2,6 @@ package edu.thu.mapred.local.red;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -18,11 +17,11 @@ import edu.thu.mapred.local.io.CsvRecordWriter;
 import edu.thu.mapred.local.io.LocalRecordIterator;
 import edu.thu.mapred.local.io.RawRecordIterator;
 import edu.thu.mapred.local.io.RecordMerger;
-import edu.thu.mapred.local.io.RecordMerger.RecordSegment;
 
 public class ReduceDriver extends BaseDriver {
 
-	public ReduceDriver(LocalJobConf conf, TaskId id, List<File> mapFiles) throws Exception {
+	public ReduceDriver(LocalJobConf conf, TaskId id,
+			List<edu.thu.mapred.local.io.RecordSegment> mapFiles) throws Exception {
 		super(conf, mapFiles);
 		this.init(id);
 	}
@@ -32,11 +31,7 @@ public class ReduceDriver extends BaseDriver {
 		logger.info("Reduce task {} starts.", this.id);
 		long start = System.currentTimeMillis();
 
-		List<RecordSegment> segments = new ArrayList<>(this.mapFiles.size());
-		for (File file : this.mapFiles) {
-			segments.add(new RecordSegment(conf, file, false));
-		}
-		RawRecordIterator in = RecordMerger.merge(conf, segments, this.fileHelper.getTempDir(),
+		RawRecordIterator in = RecordMerger.merge(conf, mapFiles, this.fileHelper.getTempDir(),
 				this.conf.getSortFactor(), this.conf.getMapOutputKeyComparator());
 
 		Class<? extends Reducer> reducerClass = this.conf.getReducerClass();

@@ -4,7 +4,6 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Date;
-import java.util.HashMap;
 
 import com.aliyun.odps.Column;
 import com.aliyun.odps.OdpsType;
@@ -256,7 +255,7 @@ public class LocalRecord implements Record {
 		}
 
 		@Override
-		public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
+		public int compare(byte[] b1, int s1, byte[] b2, int s2) {
 			for (int i = 0; i < this.schema.length; i++) {
 				switch (this.schema[i].getType()) {
 				case BIGINT:
@@ -272,8 +271,6 @@ public class LocalRecord implements Record {
 
 						s1 += len1;
 						s2 += len2;
-						l1 -= len1;
-						l2 -= len2;
 					}
 					break;
 				case STRING:
@@ -288,8 +285,6 @@ public class LocalRecord implements Record {
 
 						s1 = s1 + len1 + n1;
 						s2 = s2 + len2 + n1;
-						l1 = l1 - len1 - n1;
-						l2 = l2 - len2 - n2;
 					}
 					break;
 				default:

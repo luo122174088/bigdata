@@ -14,20 +14,27 @@ import edu.thu.mapred.local.BaseDriver;
 import edu.thu.mapred.local.LocalJobConf;
 import edu.thu.mapred.local.LocalTaskContext;
 import edu.thu.mapred.local.io.CsvRecordReader;
+import edu.thu.mapred.local.io.RecordSegment;
 import edu.thu.mapred.local.io.TaskFileHelper;
 
 public class MapDriver extends BaseDriver {
 
 	protected File inputFile;
-	protected MapOutputCollector collector;
+	protected OutputCollector collector;
 
 	protected List<File> inputFiles;
 	protected List<TaskId> mapIds;
 
-	public MapDriver(LocalJobConf conf, List<File> mapFiles, List<File> inputFiles,
+	public MapDriver(LocalJobConf conf, List<RecordSegment> mapFiles, List<File> inputFiles,
 			List<TaskId> mapIds) throws Exception {
 		super(conf, mapFiles);
-		this.collector = new MapOutputCollector(conf, new TaskFileHelper(this), mapFiles);
+		if (conf.getSimpleCollector()) {
+			logger.info("Map use SimpleMapOutputCollector.");
+			this.collector = new SimpleMapOutputCollector(conf, new TaskFileHelper(this), mapFiles);
+		} else {
+			logger.info("Map use MapOutputCollector.");
+			this.collector = new MapOutputCollector(conf, new TaskFileHelper(this), mapFiles);
+		}
 		this.inputFiles = inputFiles;
 		this.mapIds = mapIds;
 	}
@@ -71,7 +78,6 @@ public class MapDriver extends BaseDriver {
 		} finally {
 			reader.close();
 			this.collector.flush();
-			this.collector.close();
 			mapper.cleanup(context);
 			long end = System.currentTimeMillis();
 			logger.info("Map task {} ends in {}ms", this.id, (end - start));
@@ -85,9 +91,9 @@ public class MapDriver extends BaseDriver {
 
 	class MapTaskContext extends LocalTaskContext implements TaskContext {
 
-		private MapOutputCollector collector;
+		private OutputCollector collector;
 
-		public MapTaskContext(LocalJobConf conf, TaskId id, MapOutputCollector collector) {
+		public MapTaskContext(LocalJobConf conf, TaskId id, OutputCollector collector) {
 			super(conf, id);
 			this.collector = collector;
 		}
